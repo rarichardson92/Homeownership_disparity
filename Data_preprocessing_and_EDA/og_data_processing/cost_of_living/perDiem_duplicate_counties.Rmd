@@ -1,0 +1,45 @@
+---
+title: "Cost of Living - Duplicate Counties"
+author: "Natalie Winans"
+date: '2022-07-28'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+```
+
+```{r}
+perDiem <- read_csv("perDiem_by_county.csv")
+```
+
+
+```{r}
+perDiem %>% group_by(State, County) %>% filter(n() > 1) 
+```
+Read in original version of dataset
+```{r}
+perDiem_by_county_15_19 <- read.csv("perDiem_by_county_15-19.csv")
+```
+
+Remove duplicates
+```{r}
+perDiem %>% distinct() %>% group_by(State, County) %>% filter(n() > 1) 
+```
+```{r}
+perDiem_by_county_15_19 %>% filter(State == "Maryland" & str_detect(County, "Baltimore"))
+perDiem_by_county_15_19 %>% filter(State == "Virginia" & str_detect(County, "Roanoke"))
+perDiem_by_county_15_19 %>% filter(State == "Virginia" & str_detect(County, "Richmond"))
+```
+
+```{r}
+perDiem_no_duplicates <- perDiem_by_county_15_19 %>% 
+  select(State, County, mean_per_diem) %>% 
+  filter(!str_detect(County, "City")) %>% 
+  mutate(County = str_remove_all(County, "County | Parish")) 
+
+write.csv(perDiem_no_duplicates, file = "perDiem_by_county_new.csv")
+```
+

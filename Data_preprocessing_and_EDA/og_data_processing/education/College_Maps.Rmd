@@ -1,0 +1,191 @@
+---
+title: "Covid Education"
+author: "Damon Leach"
+date: "2/6/2022"
+output: html_document
+---
+
+```{r installation, echo = FALSE, message = FALSE}
+# install libraries
+library(tidyverse)
+library(ggplot2)
+library(usmap)
+
+# load in the data
+twoyear <- read.csv("../../og_data/education/HEsegDataviz_CollegeData_2-year_v5.csv")
+fouryear <- read.csv("../../og_data/education/HEsegDataviz_CollegeData_4-year_v5.csv")
+
+# combine the two datasets
+combined <- twoyear %>%
+  full_join(fouryear)
+```
+
+```{r col_white, echo = FALSE, warning = FALSE}
+# load in map data
+us <- map_data("state")
+# convert state to lower case to match us data
+combined$region <- tolower(combined$fips_ipeds)
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_white, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage White",fill = "% White") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r col_black, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_black, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Black",fill = "% Black") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+combined
+```
+
+```{r col_hispa, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_hispa, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Hispanic",fill = "% Hispanic") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r col_asian, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_asian, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Asian",fill = "% Asian") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r col_amind, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_amind, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Native American",fill = "% Native American") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r col_pacis, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_pacis, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Pacific Islander",fill = "% Pacific Islander") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r col_twora, echo = FALSE, warning = FALSE}
+# create the plot
+ggplot() + 
+  geom_map(data=us, map=us,
+                    aes(x=long, y=lat, map_id=region),
+                    fill="#ffffff", color="#ffffff", size=0.15) + 
+  geom_map(data=combined, map = us,
+                    aes(fill=col_twora, map_id=region),
+                    color="#ffffff", size=0.15) + 
+  scale_fill_continuous(low='skyblue', high='navyblue', 
+                                 guide='colorbar') + 
+  labs(x=NULL, y=NULL, title = "College Percentage Multracial",fill = "% Multracial") + 
+  coord_map("albers", lat0 = 39, lat1 = 45) + 
+  theme(panel.border = element_blank()) + 
+  theme(panel.background = element_blank()) + 
+  theme(axis.ticks = element_blank()) + 
+  theme(axis.text = element_blank()) + 
+  facet_wrap(~slevel)
+```
+
+```{r}
+med2 <- twoyear %>%
+  group_by(fips_ipeds) %>%
+  summarise(white2 = median(col_white,na.rm=T),
+            black2 = median(col_black,na.rm=T),
+            hispa2 = median(col_hispa,na.rm=T),
+            asian2 = median(col_asian,na.rm=T),
+            amind2 = median(col_amind,na.rm=T),
+            pacis2 = median(col_pacis,na.rm=T),
+            twora2 = median(col_twora,na.rm=T))
+med4 <- fouryear %>%
+  group_by(fips_ipeds) %>%
+  filter(fips_ipeds != "District of Columbia") %>%
+  summarise(white4 = median(col_white,na.rm=T),
+            black4 = median(col_black,na.rm=T),
+            hispa4 = median(col_hispa,na.rm=T),
+            asian4 = median(col_asian,na.rm=T),
+            amind4 = median(col_amind,na.rm=T),
+            pacis4 = median(col_pacis,na.rm=T),
+            twora4 = median(col_twora,na.rm=T))
+
+both <- cbind(med2,med4[,-1])
+```
+

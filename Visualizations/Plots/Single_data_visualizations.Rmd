@@ -1,0 +1,163 @@
+---
+title: "Single Data Visualizations"
+author: "Damon Leach"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE , warning = FALSE, message = FALSE)
+```
+
+```{r}
+# load in the libraries
+library(tidyverse)
+library(urbnmapr)
+
+# load in the data
+all_dat <- read.csv("all_data_join.csv")
+us_region <- read.csv("us_regions.csv")
+
+all_dat <- all_dat %>%
+  left_join(us_region, by = c("st" = "State")) %>%
+  mutate(county_fips = as.character(county_fips),
+         county_fips = ifelse(nchar(county_fips == 4),
+                              paste0("0",county_fips),
+                              county_fips))
+
+# counties_sf <- get_urbn_map("counties",sf = TRUE)
+# spatial_data <- left_join(get_urbn_map(map = "counties", sf = TRUE),
+#                           all_dat,
+#                           by = "county_fips")
+```
+
+
+# Education
+
+```{r}
+education_state <- all_dat %>%
+  dplyr::select(st,county,county_fips,rate_2010,Region,Division) %>%
+  group_by(st) %>%
+  summarise(mean_hs = mean(rate_2010,na.rm = TRUE))
+# 
+# ggplot() + 
+#   geom_sf(education_state,
+#           mapping = aes(fill = rate_2010),
+#           color = "#ffffff", size = 0.25) + 
+#   labs(fill = "Col White",
+#        title = "College Percentage White")
+```
+
+
+```{r}
+# library
+library(tidyverse)
+library(geojsonio)
+library(RColorBrewer)
+library(broom)
+library(rgeos)
+library(viridis)
+
+# Download the Hexagones boundaries at geojson format here: https://team.carto.com/u/andrew/tables/andrew.us_states_hexgrid/public/map.
+
+# Load this file. (Note: I stored in a folder called DATA)
+spdf <- geojson_read("us_states_hexgrid.geojson",  what = "sp")
+
+# Bit of reformating
+spdf@data = spdf@data %>%
+  mutate(google_name = gsub(" \\(United States\\)", "", google_name))
+spdf@data = spdf@data %>% mutate(google_name = gsub(" \\(United States\\)", "", google_name))
+spdf_fortified <- tidy(spdf, region = "google_name")
+centers <- cbind.data.frame(data.frame(gCentroid(spdf, byid=TRUE), id=spdf@data$iso3166_2))
+spdf_fortified <- spdf_fortified %>%
+  left_join(.,education_state,by = c("id" = "st"))
+my_palette <- rev(mako(8))[c(-1,-8)]
+
+
+# create bins
+spdf_fortified$bin <- cut( spdf_fortified$mean_hs , breaks=c(seq(from = 0.80, to = 0.95, by = 0.03)), labels=c("0.8-0.83", "0.83-0.86", "0.86-0.89", "0.89-0.92", "0.92-0.95"), include.lowest = TRUE )
+
+# plot
+ggplot() +
+  geom_polygon(data = spdf_fortified, aes(fill = bin, x = long, y = lat, group = group) , size=0, alpha=0.9) +
+  geom_text(data=centers, aes(x=x, y=y, label=id), color="white", size=3, alpha=0.6) +
+  theme_void() +
+  scale_fill_manual( 
+    values=my_palette, 
+    name="Mean State High School Graduation Rate", 
+    guide = guide_legend( keyheight = unit(3, units = "mm"), keywidth=unit(12, units = "mm"), label.position = "bottom", title.position = 'top', nrow=1) 
+  ) +
+  ggtitle( "Mean High School Graduation by State" ) +
+  theme(
+    legend.position = c(0.5, 0.9),
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA), 
+    panel.background = element_rect(fill = "#f5f5f2", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.title = element_text(size= 22, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+  )
+```
+
+
+# Commute Time
+
+```{r}
+commute_state <- all_dat %>%
+  dplyr::select(st,county,county_fips,starts_with("Estimate_Total"),Region,Division) %>%
+  pivot_longer(cols = starts_with("Estimate_Total"),names_to = "Commute_Time",values_to = "Percentage")
+
+commute_state %>%
+  group_by(Division,Commute_Time) %>%
+  summarise(meanPer = mean(Percentage,na.rm=TRUE)) %>%
+  mutate(Commute_Time = factor(Commute_Time,
+                               levels = c("Estimate_Total._Less.than.10.minutes",
+                                          "Estimate_Total._10.to.29.minutes",
+                                          "Estimate_Total._30.to.59.minutes",
+                                          "Estimate_Total._60.minutes.or.more")),
+         Commute_Time = fct_rev(Commute_Time)) %>%
+  ggplot(aes(x = Division, y = meanPer,fill = Commute_Time)) +
+  geom_col() + 
+  coord_flip()
+```
+
+# Mean Per Diem
+
+```{r}
+library(gt)
+perdiem_division <- all_dat %>%
+  dplyr::select(st,county,county_fips,mean_per_diem,Region,Division) %>%
+  group_by(Division) %>%
+  summarise(mean_pd = mean(mean_per_diem,na.rm = TRUE)) %>%
+  arrange(desc(mean_pd))
+
+color_scale <- scales::col_numeric(c("#FEF0D9", "#990000"),
+                                   domain  = c(min(perdiem_division$mean_pd),max(perdiem_division$mean_pd)), 
+                                   alpha = 0.75)
+
+perdiem_division %>%
+  gt() %>%
+  tab_header(title = "Mean Per Diem by Division")  %>%
+  cols_label(mean_pd = "Mean Per Diem") %>%
+  fmt_number(mean_pd) %>%
+  data_color(columns = mean_pd,colors = color_scale)
+
+perdiem_state <- all_dat %>%
+  dplyr::select(st,county,county_fips,mean_per_diem,Region,Division) %>%
+  group_by(st) %>%
+  summarise(mean_pd = mean(mean_per_diem,na.rm = TRUE)) %>%
+  arrange(desc(mean_pd))
+
+color_scale <- scales::col_numeric(c("#FEF0D9", "#990000"),
+                                   domain  = c(min(perdiem_state$mean_pd,na.rm=T),max(perdiem_state$mean_pd,na.rm=T)), 
+                                   alpha = 0.75)
+
+perdiem_state %>%
+  gt() %>%
+  tab_header(title = "Mean Per Diem by State")  %>%
+  cols_label(mean_pd = "Mean Per Diem",
+             st = "State") %>%
+  fmt_number(mean_pd) %>%
+  data_color(columns = mean_pd,colors = color_scale)
+```
+
+

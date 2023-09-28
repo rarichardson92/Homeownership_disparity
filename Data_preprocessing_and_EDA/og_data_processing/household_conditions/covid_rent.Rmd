@@ -1,0 +1,2124 @@
+---
+title: "Clean Up on Aisle 4"
+author: "Damon Leach"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r alabama 1}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_al.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_al.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Alabama"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Alabama"
+
+state_1 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r alaska 2}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ak.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ak.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Alaska"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Alaska"
+
+state_2 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r arizona 3}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_az.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_az.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Arizona"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Arizona"
+
+state_3 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r arkansas 4}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ar.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ar.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Arkansas"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Arksansa"
+
+state_4 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r california 5}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ca.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ca.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "California"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "California"
+
+state_5 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r colorado 6}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_co.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_co.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Colorado"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Colorado"
+
+state_6 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r connecticut 7}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ct.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ct.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Connecticut"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Connecticut"
+
+state_7 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r delaware 8}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_de.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_de.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Delaware"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Delaware"
+
+state_8 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r florida 9}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_fl.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_fl.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Florida"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Florida"
+
+state_9 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r georgia 10}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ga.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ga.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Georgia"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Georgia"
+
+state_10 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r hawaii 11}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_hi.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_hi.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Hawaii"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Hawaii"
+
+state_11 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r idaho 12}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_id.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_id.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Idaho"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Idaho"
+
+state_12 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r illinois 13}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_il.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_il.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Illinois"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Illinois"
+
+state_13 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r indiana 14}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_in.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_in.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Indiana"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Indiana"
+
+state_14 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r iowa 15}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ia.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ia.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Iowa"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Iowa"
+
+state_15 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r kansas 16}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ks.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ks.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Kansas"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Kansas"
+
+state_16 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r kentucky 17}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ky.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ky.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Kentucky"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Kentucky"
+
+state_17 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r louisana 18}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_la.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_la.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Louisiana"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Louisiana"
+
+state_18 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r maine 19}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_me.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_me.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Maine"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Maine"
+
+state_19 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r maryland 20}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_md.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_md.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Maryland"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Maryland"
+
+state_20 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r massachusetts 21}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ma.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ma.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Massachusetts"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Massachusetts"
+
+state_21 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r michigan 22}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_mi.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_mi.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Michigan"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Michigan"
+
+state_22 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r minnesota 23}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_mn.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_mn.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Minnesota"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Minnesota"
+
+state_23 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r mississippi 24}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ms.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ms.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Mississippi"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Mississippi"
+
+state_24 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r missouri 25}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_mo.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_mo.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Missouri"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Missouri"
+
+state_25 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r montana 26}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_mt.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_mt.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Montana"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Montana"
+
+state_26 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r nebraska 27}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ne.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ne.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Nebraska"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Nebraska"
+
+state_27 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r nevada 28}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nv.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nv.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Nevada"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Nevada"
+
+state_28 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r new hampshire 29}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nh.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nh.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "New Hampshire"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "New Hampshire"
+
+state_29 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r new jersey 30}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nj.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nj.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "New Jersey"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "New Jersey"
+
+state_30 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r new mexico 31, include = FALSE}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nm.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nm.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "New Mexico"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "New Mexico"
+
+state_31 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r new york 32}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ny.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ny.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "New York"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "New York"
+
+state_32 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r north carolina 33}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nc.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nc.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "North Carolina"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "North Carolina"
+
+state_33 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r north dakota 34}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_nd.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_nd.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "North Dakota"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "North Dakota"
+
+state_34 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r ohio 35}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_oh.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_oh.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Ohio"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Ohio"
+
+state_35 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r oklahoma 36}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ok.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ok.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Oklahoma"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Oklahoma"
+
+state_36 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r oregon 37}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_or.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_or.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Oregon"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Oregon"
+
+state_37 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r pennsylvania 38}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_pa.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_pa.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Pennsylvania"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Pennsylvania"
+
+state_38 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r rhode island 39}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ri.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ri.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Rhode Island"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Rhode Island"
+
+state_39 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r south carolina 40}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_sc.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_sc.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "South Carolina"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "South Carolina"
+
+state_40 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r south dakota 41}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_sd.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_sd.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "South Dakota"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "South Dakota"
+
+state_41 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r tennesse 42}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_tn.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_tn.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Tennessee"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Tennessee"
+
+state_42 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r texas 43}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_tx.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_tx.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Texas"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Texas"
+
+state_43 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r utah 44}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_ut.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_ut.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Utah"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Utah"
+
+state_44 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r vermont 45}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_vt.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_vt.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Vermont"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Vermont"
+
+state_45 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r virginia 46}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_va.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_va.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Virginia"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Virginia"
+
+state_46 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r washington 47}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_wa.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_wa.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Washington"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Washington"
+
+state_47 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r west virginia 48}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_wv.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_wv.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "West Virginia"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "West Virginia"
+
+state_48 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r wisconsin 49}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_wi.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_wi.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Wisconsin"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Wisconsin"
+
+state_49 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r wyoming 50}
+il2 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp02_wy.csv")
+il4 <- read.csv("../../og_data/household_membership_and_misc/Mess/dp04_wy.csv")
+
+il2 <- il2 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il2) <- il2[1,]
+il2 <- il2[-1,]
+
+il2 <- il2 %>%
+  tibble::rownames_to_column(var = "County")
+
+il2$County <- str_remove(il2$County,".County.Estimate")
+il2$State <- "Wyoming"
+
+il4 <- il4 %>%
+  na_if("") %>%
+  na.omit() %>%
+  dplyr::select(-c(Table.ID,Line.Number)) %>%
+  dplyr::select(-ends_with("Percent")) %>%
+  t() %>%
+  data.frame()
+
+colnames(il4) <- il4[1,]
+il4 <- il4[-1,]
+
+il4 <- il4 %>%
+  tibble::rownames_to_column(var = "County")
+
+il4$County <- str_remove(il4$County,".County.Estimate")
+il4$State <- "Wyoming"
+
+state_50 <- il2 %>%
+  left_join(il4, by = "County")
+```
+
+```{r}
+all_states <- rbind(state_1,state_2,state_3,state_4,state_5,state_6,state_7,state_8,state_9,state_10,
+      state_11,state_12,state_13,state_14,state_15,state_16,state_17,state_18,state_19,state_20,
+      state_21,state_22,state_23,state_24,state_25,state_26,state_27,state_28,state_29,state_30,
+      state_31,state_32,state_33,state_34,state_35,state_36,state_37,state_38,state_39,state_40,
+      state_41,state_42,state_43,state_44,state_45,state_46,state_47,state_48,state_49,state_50)
+```
+
+```{r}
+write.csv(all_states,"covid_rent.csv")
+```
+
+

@@ -1,0 +1,236 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(reshape2)
+```
+
+2015-2019
+Homeowner demographics by county recording race, area-median-income, cost of homeownership, and active mortgages, used to calculate other statistics useful for policymakers to better target Homeowner Assistance Fund dollars to the homeowners most in need; including median-monthly-ownership cost to income ratio and homeowners cost-burdened and severely cost-burdened in each county.
+
+
+### Years of collection, level, etc. across datasets
+
+https://www.census.gov/data/developers/data-sets/acs-5year.html 
+
+This dataset includes homeowners’ demographic and income characteristics and assesses foreclosure risk in counties across the country. With these data, policymakers can better target Homeowner Assistance Fund dollars to the homeowners most in need.
+
+This dataset contains the following information for counties in every state:
+
+number of homeowners with incomes below 100 percent of the area median income, broken out by all homeowners and those with an active mortgage (2019 American Community Survey data, five-year estimates)
+
+number of homeowners with incomes below 150 percent of the area median income, broken out by all homeowners and those with an active mortgage (2019 American Community Survey data, five-year estimates)
+
+number of homeowners of color making between 100 and 150 percent of the area median income (2019 American Community Survey data, five-year estimates)
+
+a predictive foreclosure rate showing foreclosures as a share of total homeowners, based on economic and housing market conditions (Urban Institute data)
+
+share of all homeowners, by race or ethnicity (2019 American Community Survey data, five-year estimates)
+
+median monthly housing costs and the share of homeowners who are cost burdened, defined as those spending at least 30 percent of annual income on housing (2019 American Community Survey data, five-year estimates)
+
+## Grab population data as well
+```{r}
+
+#https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/
+
+## Age, sex, race, hispanic origin
+## immagration and migration patterns
+## by year
+pop_data1_unprocessed <- read.csv("../../og_data/census_county_influx/co-est2019-alldata.csv")
+pop_data2_unprocessed <- read.csv("../../og_data/census_population/cc-est2019-alldata.csv")
+
+```
+
+```{r}
+
+sub1 <- pop_data2_unprocessed[c("STNAME", "CTYNAME", "YEAR", "AGEGRP", "TOT_POP")]
+sub2 <- pop_data1_unprocessed[c("STNAME", "CTYNAME", "POPESTIMATE2015", "POPESTIMATE2016", "POPESTIMATE2017", "POPESTIMATE2018", "POPESTIMATE2019")]
+
+sub2
+sub1[Reduce("&", list(sub1$AGEGRP == 0, sub1$YEAR > 7)),]
+
+```
+
+
+## Process pop data for totals, influx, birth, death
+```{r}
+pop_data1 <- melt(pop_data1_unprocessed, id.vars = c(colnames(pop_data1_unprocessed)[1:7]), 
+                  variable.name = "Metric",
+                  value.name = "Count")
+pop_data1$Year <- as.numeric(str_extract(pop_data1$Metric, "[0-9]{4}"))
+pop_data1$Metric <- str_remove(pop_data1$Metric, "[0-9]{4}")
+
+# Per pdf
+descriptions <- c(
+  "Resident total Census population",
+  "resident total population estimates base",
+  "resident total population estimate",
+  "Numeric change in resident total population",
+  "Births in period",
+  "Deaths in period",
+  "Natural increase in period",
+  "Net international migration in period",
+  "Net domestic migration in period",
+  "Net migration in period",
+  "Residual for period",
+  "Group Quarters total population estimates base",
+  "Group Quarters total population estimate",
+  
+  ## rates
+  "Birth rate in period",
+  "Death rate in period",
+  "Natural increase rate in period",
+  "Net international migration rate in period",
+  "Net domestic migration rate in period",
+  "Net migration rate in period"
+)
+
+names(descriptions) <- unique(pop_data1$Metric)
+
+pop_data1$descriptions <- descriptions[pop_data1$Metric]
+
+# The key for SUMLEV is as follows:
+# 040 = State and/or Statistical Equivalent
+# 050 = County and /or Statistical Equivalent
+# 
+# The key for REGION is as follows:
+# 1 = Northeast
+# 2 = Midwest
+# 3 = South
+# 4 = West
+# 
+# The key for DIVISION is as follows:
+# 1 = New England
+# 2 = Middle Atlantic
+# 3 = East North Central
+# 4 = West North Central
+# 5 = South Atlantic
+# 6 = East South Central
+# 7 = West South Central
+# 8 = Mountain
+# 9 = Pacific
+# 
+# Note: Total population change includes a residual. This residual represents the change in population that
+# cannot be attributed to any specific demographic component. See Population Estimates Terms and
+# Definitions at http://www.census.gov/programs-surveys/popest/about/glossary.html.
+
+# county == County FIPS code
+
+## select down to 2015-2019, county summaries
+select <- Reduce("&", list(pop_data1$SUMLEV == 50, pop_data1$Year > 2014))
+pop_data1 <- pop_data1[select,]
+pop_data1
+```
+
+### process 2 for  Age, sex, race, hispanic origin
+```{r}
+
+pop_data2 <- melt(pop_data2_unprocessed, id.vars = c(colnames(pop_data2_unprocessed)[1:7]), 
+                  variable.name = "RACE",
+                  value.name = "Count")
+
+## Pre-process to reduce time constraints
+pop_data2 <- pop_data2[pop_data2$YEAR > 7,]
+pop_data2 <- pop_data2[pop_data2$SUMLEV == 50,]
+
+year_list <- c(
+      "1" = "4/1/2010 Census population",
+      "2" = "4/1/2010 population estimates base",
+      "3" = "7/1/2010 population estimate",
+      "4" = "7/1/2011 population estimate",
+      "5" = "7/1/2012 population estimate",
+      "6" = "7/1/2013 population estimate",
+      "7" = "7/1/2014 population estimate",
+      "8" = "7/1/2015 population estimate",
+      "9" = "7/1/2016 population estimate",
+      "10" = "7/1/2017 population estimate",
+      "11" = "7/1/2018 population estimate",
+      "12" = "7/1/2019 population estimate"
+)
+
+pop_data2$YEAR_desc <- year_list[as.character(pop_data2$YEAR)]
+
+Age_list <- c(
+  "0" = "Total",
+  "1" = "Age 0 to 4 years",
+  "2" = "Age 5 to 9 years",
+  "3" = "Age 10 to 14 years",
+  "4" = "Age 15 to 19 years",
+  "5" = "Age 20 to 24 years",
+  "6" = "Age 25 to 29 years",
+  "7" = "Age 30 to 34 years",
+  "8" = "Age 35 to 39 years",
+  "9" = "Age 40 to 44 years",
+  "10" = "Age 45 to 49 years",
+  "11" = "Age 50 to 54 years",
+  "12" = "Age 55 to 59 years",
+  "13" = "Age 60 to 64 years",
+  "14" = "Age 65 to 69 years",
+  "15" = "Age 70 to 74 years",
+  "16" = "Age 75 to 79 years",
+  "17" = "Age 80 to 84 years",
+  "18" = "Age 85 years or older"
+)
+pop_data2$Age_desc <- Age_list[as.character(pop_data2$AGEGRP)]
+
+pop_data2$Sex <- str_extract(pop_data2$RACE, "FEMALE|MALE")
+pop_data2$RACE <- str_remove(pop_data2$RACE, "_(FEMALE|MALE)")
+
+pop_data2$Hispanic <- str_extract(pop_data2$RACE, "^(NH|H)")
+pop_data2$RACE <- str_remove(pop_data2$RACE, "^(NH|H)")
+
+pop_data2$include_innerracial <- str_extract(pop_data2$RACE, "(AC|A)$")
+pop_data2$RACE <- str_remove(pop_data2$RACE, "(AC|A)$")
+
+# # Per pdf
+descriptions_race <- c(
+  "All",
+  "All",
+  "White",
+  "Black",
+  "American Indian or Alaska Native",
+  "Asian",
+  "Native Hawaiian or Other Pacific Islander",
+  "Two or more races",
+  "All"
+)
+
+names(descriptions_race) <- unique(pop_data2$RACE)
+pop_data2$RACE <- descriptions_race[pop_data2$RACE]
+
+pop_data2$include_innerracial[!is.na(pop_data2$include_innerracial)] <- sapply(
+  pop_data2$include_innerracial[!is.na(pop_data2$include_innerracial)], 
+  identical, "AC")
+
+pop_data2$Hispanic[!is.na(pop_data2$Hispanic)] <- sapply(
+  pop_data2$Hispanic[!is.na(pop_data2$Hispanic)], identical, "H")
+
+pop_data2[is.na(pop_data2)] <- "All"
+pop_data2 <- pop_data2[c("STATE", "COUNTY", "STNAME", "CTYNAME", 
+                         "YEAR_desc", "Age_desc", "RACE", 
+                         "include_innerracial", "Hispanic", "Sex", "Count")]
+
+```
+
+
+```{r}
+
+pop_data1[pop_data1$Metric == "POPESTIMATE",]
+pop_data2[pop_data2$Age_desc == "Total",]
+```
+
+## Save data
+```{r}
+
+write.csv(pop_data1, "./population_influx_by_county_2015_2019.csv", row.names = F)
+write.csv(pop_data2, "./population_demo_by_county_2015_2019.csv", row.names = F)
+saveRDS(pop_data2, "Census_pop_data.rds")
+
+```

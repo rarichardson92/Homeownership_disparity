@@ -1,0 +1,196 @@
+---
+title: 'Analysis: Household Conditions by Geographic School District'
+author: Natalie Winans
+date: 6 January 2022
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+
+library(tidyverse)
+library(GGally)
+library(DT)
+```
+
+## Data Structure
+
+```{r read in data}
+dat <- readxl::read_xlsx("../../og_data/household_conditions/NHGIS_District_data.xlsx")
+
+# str<- as.data.frame(names(dat))
+# str$type <- sapply(dat, class)
+# 
+# str %>% 
+#   rename(Column = `names(dat)`,
+#                Type = type) %>% 
+#   datatable(rownames = FALSE,
+#             options = list(dom = 't'))
+
+str(dat)
+```
+
+**Note:** "Margin of Error" may be mislabeled, looks more like a confidence interval.
+
+
+Dataset with abbreviated column names:
+```{r rename dat cols}
+colnames(dat) <- c("School_ID",
+                   "State",
+                   "School_District",
+                   "Children_5-17",
+                   "Poverty_pct",
+                   "Single_Parent_pct",
+                   "Single_Parent_MOE",
+                   "HH_Vulnerable_Job_pct",
+                   "HH_Vulnerable_Job_MOE",
+                   "Crowded_pct",
+                   "Crowded_MOE",
+                   "No_Computer_Internet_pct",
+                   "No_Computer_Internet_MOE",
+                   "Child_Disability_pct",
+                   "Child_Disability_MOE",
+                   "Ling_Isolated_pct",
+                   "Ling_Isolated_MOE")
+
+dat %>% head(., 10) %>% datatable(options = list(dom = 't', scrollX = TRUE)) 
+```
+
+
+```{r predictor histograms, include=FALSE}
+dat %>%
+  select(contains("pct")) %>%
+  pivot_longer(cols = everything(),
+               names_to = "Variables",
+               values_to = "Values") %>%
+  ggplot(aes(x = Values)) +
+  geom_histogram() +
+  facet_wrap(~Variables) +
+  theme_bw()
+```
+
+```{r predictor boxplot, fig.height=3, fig.width=10}
+dat %>% 
+  select(contains("pct")) %>% 
+  pivot_longer(cols = everything(),
+               names_to = "Variables",
+               values_to = "Values") %>% 
+  ggplot(aes(x = Variables, y = Values)) +
+  geom_boxplot(fill = "gray") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  ggtitle("Predictor Distributions")
+```
+
+
+```{r scatterplot matrix}
+dat %>% 
+  ggpairs(., columns = c(
+                   "Poverty_pct",
+                   "Single_Parent_pct",
+                   "HH_Vulnerable_Job_pct",
+                   "Crowded_pct",
+                   "No_Computer_Internet_pct",
+                   "Child_Disability_pct",
+                   "Ling_Isolated_pct"))
+```
+
+```{r, fig.height = 14, fig.width=10}
+# dat %>% 
+#   group_by(State) %>% 
+#   summarize(child_poverty = mean(Poverty_pct),
+#             single_parent = mean(Single_Parent_pct),
+#             vulnerable_job = mean(HH_Vulnerable_Job_pct),
+#             crowded = mean(Crowded_pct),
+#             no_comp_internet = mean(No_Computer_Internet_pct),
+#             disability = mean(Child_Disability_pct),
+#             ling_isolation = mean(Ling_Isolated_pct)) %>%
+#   pivot_longer(cols = !State, names_to = "Predictor", values_to = "Values") %>% 
+#   ggplot(aes(x = State, y = Values)) +
+#   geom_bar(stat = "identity") +
+#   facet_wrap(~Predictor, nrow = 7) +
+#   theme(axis.text.x = element_text(angle=90))
+
+dat %>% 
+  select(State, contains("pct")) %>% 
+  pivot_longer(cols = !State, names_to = "Predictor", values_to = "Values") %>% 
+  ggplot(aes(x = State, y = Values)) +
+  geom_boxplot(fill = "grey") +
+  facet_wrap(~Predictor, nrow = 7) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90)) 
+```
+
+
+
+
+## Related datasets
+
+**Source:** Urban Institute Education Data Portal
+"The data in this section come from the National Center for Education Statistics’ Common Core of Data, the US Census Bureau Small Area Income and Poverty Estimates, and the US Department of Education’s EDFacts initiative."
+
+#### [Race Data](https://educationdata.urban.org/documentation/school-districts.html#ccd-enrollment-by-grade-and-race)
+
+```{r race data}
+race_data <- read_csv("../../og_data/household_conditions/EducationDataPortal_12.16.2021_race.csv")
+
+race_data %>% datatable() 
+```
+#### [School District Data](https://educationdata.urban.org/data-explorer/school-districts/)
+
+Very large dataset (175 MB) containing data from 1986-2019. Subset of data from 2019 on shared drive.
+
+```{r school dist data}
+school_distr_data <- read_csv("../../og_data/household_conditions/school-districts_lea_directory.csv")
+school_dist_data_2019 <- school_distr_data %>% 
+  filter(year == 2019)
+
+write_csv(school_dist_data_2019, file = "school_districts_lea_directory_2019.csv")
+
+school_dist_data_2019 %>% head(., 8) %>% datatable(options = list(dom = 't', scrollX = TRUE))
+```
+
+#### Datasets merged by district
+
+```{r merge datasets by districts}
+# merge household conditions, race, and district lat/long data
+dist_race_location <- race_data %>%
+  pivot_wider(names_from = race, values_from = enrollment) %>%
+  mutate(across(.cols = White:Unknown, ~ .x/Total)) %>%
+  rename(School_District = lea_name,
+         Total_Enrollment = Total) %>%
+  inner_join(dat, by = "School_District") %>%
+  select(-state_name) %>%
+  left_join(school_dist_data_2019 %>% select(leaid, longitude, latitude), by = "leaid") %>%
+  rename(state_name = State)
+
+dist_race_location %>% 
+  datatable(options = list(scrollX = TRUE))
+
+# 1558 observations (districts) remain
+```
+
+```{r}
+
+```
+
+
+```{r}
+# library(urbnmapr)
+# 
+# dist_race_location %>% 
+#   left_join(states, by = "state_name") %>% 
+#   ggplot(mapping = aes(long, lat, fill = Single_Parent_pct)) +
+#   geom_polygon(color = "#ffffff", size = .25) +
+#   # scale_fill_gradientn(labels = scales::percent,
+#   #                      guide = guide_colorbar(title.position = "top")) +
+#   coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+#   theme(legend.title = element_text(),
+#         legend.key.width = unit(.5, "in")) +
+#   labs(fill = "Single Parent rate") 
+```
+

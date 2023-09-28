@@ -1,0 +1,313 @@
+---
+title: "RAC_All_Tract"
+author: "David J Degnan"
+date: "5/20/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE, message = FALSE)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+library(trelliscopejs)
+library(plotly)
+library(DT)
+```
+
+## Brief Description
+
+RAC - Resident Area Characteristic Data - totaled by HOME census block
+
+Both federal and non-federal datasets were combined. 
+
+```{r}
+RAC_NoFed <- fread("../../og_data/Job_counts/rac_all_tract_minus_fed.csv")
+RAC_Fed <- fread("../../og_data/Job_counts/rac_fed_tract.csv")
+RAC <- rbind(RAC_NoFed, RAC_Fed)
+```
+
+## Subset and Roll Up
+
+Subset to the 2015-2018 years and roll up to the county level.
+
+```{r}
+RAC_County <- RAC %>%
+  subset(year %in% 2015:2018) %>%
+  select(cty, year, colnames(RAC)[8:48]) %>%
+  group_by(cty, year) %>%
+  summarise(across(everything(), sum)) %>%
+  ungroup() %>%
+  select(-year) %>%
+  group_by(cty) %>%
+  summarise(across(everything(), mean)) %>%
+  ungroup() %>%
+  rename(FIPS = cty)
+```
+
+## Get Proportions
+
+*Total:* C000 Num Total number of jobs
+
+*Age*
+
+* CA01 Num Number of jobs for workers age 29 or younger
+
+* CA02 Num Number of jobs for workers age 30 to 54
+
+* CA03 Num Number of jobs for workers age 55 or older
+
+*Earnings*
+
+* CE01 Num Number of jobs with earnings 1250/month or less
+
+* CE02 Num Number of jobs with earnings 1251/month to 3333/month
+
+* CE03 Num Number of jobs with earnings greater than 3333/month
+
+*Industry*
+
+* CNS01 Num Number of jobs in NAICS sector 11 (Agriculture, Forestry, Fishing and Hunting)
+
+* CNS02 Num Number of jobs in NAICS sector 21 (Mining, Quarrying, and Oil and Gas Extraction)
+
+* CNS03 Num Number of jobs in NAICS sector 22 (Utilities)
+
+* CNS04 Num Number of jobs in NAICS sector 23 (Construction)
+
+* CNS05 Num Number of jobs in NAICS sector 31-33 (Manufacturing)
+
+* CNS06 Num Number of jobs in NAICS sector 42 (Wholesale Trade)
+
+* CNS07 Num Number of jobs in NAICS sector 44-45 (Retail Trade)
+
+* CNS08 Num Number of jobs in NAICS sector 48-49 (Transportation and Warehousing)
+
+* CNS09 Num Number of jobs in NAICS sector 51 (Information)
+
+* CNS10 Num Number of jobs in NAICS sector 52 (Finance and Insurance)
+
+* CNS11 Num Number of jobs in NAICS sector 53 (Real Estate and Rental and Leasing)
+
+* CNS12 Num Number of jobs in NAICS sector 54 (Professional, Scientific, and Technical Services)
+
+* CNS13 Num Number of jobs in NAICS sector 55 (Management of Companies and Enterprises)
+
+* CNS14 Num Number of jobs in NAICS sector 56 (Administrative and Support and Waste Management and * 
+Remediation Services)
+
+* CNS15 Num Number of jobs in NAICS sector 61 (Educational Services)
+
+* CNS16 Num Number of jobs in NAICS sector 62 (Health Care and Social Assistance)
+
+* CNS17 Num Number of jobs in NAICS sector 71 (Arts, Entertainment, and Recreation)
+
+* CNS18 Num Number of jobs in NAICS sector 72 (Accommodation and Food Services)
+
+* CNS19 Num Number of jobs in NAICS sector 81 (Other Services [except Public Administration])
+
+* CNS20 Num Number of jobs in NAICS sector 92 (Public Administration)
+
+*Race* 
+
+* CR01 Num Number of jobs for workers with Race: White, Alone (split out Hispanic)
+
+* CR02 Num Number of jobs for workers with Race: Black or African American Alone
+
+* CR03 Num Number of jobs for workers with Race: American Indian or Alaska Native Alone
+
+* CR04 Num Number of jobs for workers with Race: Asian Alone
+
+* CR05 Num Number of jobs for workers with Race: Native Hawaiian or Other Pacific Islander Alone
+
+* CR07 Num Number of jobs for workers with Race: Two or More Race Groups
+
+*Ethnicity*
+
+* CT01 Num Number of jobs for workers with Ethnicity: Not Hispanic or Latino
+
+* CT02 Num Number of jobs for workers with Ethnicity: Hispanic or Latino
+
+*Education*
+
+* CD01 Num Number of jobs for workers with Educational Attainment: Less than high school
+
+* CD02 Num Number of jobs for workers with Educational Attainment: High school or equivalent, no college
+
+* CD03 Num Number of jobs for workers with Educational Attainment: Some college or Associate degree
+
+* CD04 Num Number of jobs for workers with Educational Attainment: Bachelor's degree or advanced degree
+
+*Sex*
+
+* CS01 Num Number of jobs for workers with Sex Male
+
+* CS02 Num Number of jobs for workers with Sex Female
+
+
+```{r}
+# Data descriptors
+Descriptors <- data.table(
+  Column = colnames(RAC_County)[3:ncol(RAC_County)],
+  Description = c("Age 14 to 29", "Age 30 to 54", "Age 55 and Older",
+                  "Earning 1250 or less", "Earning 1250 to 3333", "Earning 3333 or more",
+                  "Agriculture", "Mining", "Utilities", "Construction",
+                  "Manufacturing", "Wholesale", "Retail", "Transportation",
+                  "Information", "Insurance", "Real Estate", "Science",
+                  "Management", "Waste Management", "Education", "Health Care",
+                  "Entertainment", "Food Services", "Other Services", "Public Administration",
+                  "White", "Black", "Native", "Asian", "Pacific Islander", "Multiracial",
+                  "Not Hispanic", "Hispanic", "Less than high school", 
+                  "High school", "Some college or Associates", "Bachelors or higher",
+                  "Male", "Female")
+)
+
+# Calculate each group over total 
+Props <- do.call(cbind, lapply(colnames(RAC_County)[3:ncol(RAC_County)], function(name) {
+  RAC_County[[name]] / RAC_County$c000
+})) %>% data.table()
+colnames(Props) <- Descriptors$Description
+Props <- data.table(RAC_County[,c(1:2)], Props)
+colnames(Props)[2] <- "Average of Annual Total"
+fwrite(Props, "Job_Proportions.csv")
+datatable(Descriptors)
+```
+
+## County Sizes
+
+```{r}
+RAC_County$c000 %>% summary()
+```
+
+
+## Jobs per...
+
+We have 3142 samples. 
+
+#### Age
+
+```{r}
+Props %>%
+  select(Descriptors$Description[1:3]) %>% 
+  pivot_longer(Descriptors$Description[1:3]) %>%
+  rename(Age = name, Proportion = value) %>%
+  ggplot(aes(x = Age, y = Proportion, fill = Age)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none")
+```
+
+```{r}
+pairs(Props %>% select(Descriptors$Description[1:3]))
+```
+
+#### Earnings
+
+```{r}
+Props %>%
+  select(Descriptors$Description[4:6]) %>% 
+  pivot_longer(Descriptors$Description[4:6]) %>%
+  rename(Earnings = name, Proportion = value) %>%
+  ggplot(aes(x = Earnings, y = Proportion, fill = Earnings)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none")
+```
+
+```{r}
+pairs(Props %>% select(Descriptors$Description[4:6]))
+```
+
+#### Industry 
+
+```{r}
+Props %>%
+  select(Descriptors$Description[7:26]) %>% 
+  pivot_longer(Descriptors$Description[7:26]) %>%
+  rename(Industry = name, Proportion = value) %>%
+  ggplot(aes(x = Industry, y = Proportion)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+#### Race
+
+Since we are counting Hispanic as a race in this case, we will calculate Hispanic
+as Hispanic Ethnicity Proportion * White Race Proportion, and adjust White Race 
+Proportion to be Not Hispanic Ethnicity Proportion * White Race Proportion.
+
+```{r}
+Props %>%
+  select(Descriptors$Description[27:34]) %>%
+  mutate(
+    Hispanic = White * Hispanic,
+    White = White * `Not Hispanic`
+  ) %>%
+  select(-`Not Hispanic`) %>%
+  pivot_longer(Descriptors$Description[c(27:32, 34)]) %>%
+  rename(Race = name, Proportion = value) %>%
+  ggplot(aes(x = Race, y = Proportion, fill = Race)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none") 
+```
+
+```{r}
+pairs(Props %>% select(Descriptors$Description[27:34]))
+```
+
+#### Education
+
+```{r}
+Props %>%
+  select(Descriptors$Description[35:38]) %>% 
+  pivot_longer(Descriptors$Description[35:38]) %>%
+  rename(Education = name, Proportion = value) %>%
+  mutate(Education = factor(Education, levels = Descriptors$Description[35:38])) %>%
+  ggplot(aes(x = Education, y = Proportion, fill = Education)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+pairs(Props %>% select(Descriptors$Description[35:38]))
+```
+
+#### Sex
+
+```{r}
+Props %>%
+  select(Descriptors$Description[39:40]) %>% 
+  pivot_longer(Descriptors$Description[39:40]) %>%
+  rename(Sex = name, Proportion = value) %>%
+  mutate(Sex = factor(Sex, levels = Descriptors$Description[39:40])) %>%
+  ggplot(aes(x = Sex, y = Proportion, fill = Sex)) + geom_boxplot() + theme_bw() + 
+  ylim(c(0,1)) + theme(legend.position = "none") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+## Outlier Detection 
+
+```{r}
+# Run PCA on log adjusted data 
+PCA <- prcomp(log10(RAC_County[,3:42] + 1e-10), scale = T)
+PCA_Res <- data.table("PC1" = PCA$x[,1], "PC2" = PCA$x[,2], "FIPS" = RAC_County$FIPS, "Total" = log10(RAC_County$c000)) %>%
+  merge(
+    unique(RAC[,c("cty", "ctyname")]) %>% 
+      mutate(ctyname = lapply(ctyname, function(x) {
+        strsplit(x, ",") %>% unlist() %>% tail(1)}) %>% unlist()) %>% 
+      rename(FIPS = cty, State = ctyname), 
+   by = "FIPS") 
+
+PCA_Res%>%
+  ggplot(aes(x = PC1, y = PC2, color = Total, label = FIPS)) + geom_point() + xlab("PC1 (83.93%)") + 
+    ylab("PC2 (6.83%)") + theme_bw()
+```
+
+There may be 5 outliers, which are small counties with small to non-existant minority
+populations and without certain industries.
+
+```{r}
+PotOut <- PCA_Res %>% filter(PC2 < -5) %>% select(FIPS) %>% unlist()
+
+datatable(RAC_County %>% filter(FIPS %in% PotOut), options = list(scrollX = T))
+```
+
+
+

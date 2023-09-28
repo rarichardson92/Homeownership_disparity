@@ -1,0 +1,141 @@
+---
+title: "County Level Data"
+author: "Damon Leach"
+date: "2/19/2022"
+output: html_document
+---
+
+```{r}
+# install libraries
+library(tidyverse)
+library(ggplot2)
+library(urbnmapr)
+
+# load in the data
+twoyear <- read.csv("../../og_data/education/HEsegDataviz_CollegeData_2-year_v5.csv")
+fouryear <- read.csv("../../og_data/education/HEsegDataviz_CollegeData_4-year_v5.csv")
+address <- read.csv("address_clean.csv")
+uscities <- read.csv("../../og_data/education/uscities.csv")
+hsgrad <- read.csv("../../og_data/education/hsgrad.csv")
+hsgrad <- hsgrad %>%
+  mutate(fips = as.character(fips),
+         fips = ifelse(nchar(fips) == 4, paste("0",fips,sep=""),fips))
+uscities <- uscities%>%
+  mutate(county_fips = as.character(county_fips),
+         county_fips = ifelse(nchar(county_fips) == 4,paste("0",county_fips,sep = ""),county_fips))
+address <- address %>%
+  mutate(cityState = paste(City,State, sep = ", "))
+uscities <- uscities %>%
+  mutate(cityState = paste(city, state_id, sep = ", "))
+address <- address %>%
+  left_join(uscities,by = "cityState") %>%
+  select(Unit.Id,Institution.Name,City,State,cityState,county_fips, county_name,lat,lng)
+```
+
+```{r}
+fouryear2 <- fouryear %>%
+  left_join(address, by = c("unitid" = "Unit.Id")) %>%
+  filter(!is.na(county_fips),year == 2017)
+
+twoyear2 <- twoyear %>%
+  left_join(address, by = c("unitid" = "Unit.Id")) %>%
+  filter(!is.na(county_fips),year == 2017)
+
+# join the college data from 2 year and 4 year
+combined <- full_join(twoyear2,fouryear2)
+
+counties_sf <- get_urbn_map("counties",sf = TRUE)
+spatial_data <- left_join(get_urbn_map(map = "counties", sf = TRUE),
+                          combined,
+                          by = "county_fips")
+```
+
+```{r}
+ggplot() + 
+  geom_sf(spatial_data,
+          mapping = aes(fill = col_white),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Col White",
+       title = "College Percentage White")
+
+ggplot() + 
+  geom_sf(spatial_data,
+          mapping = aes(fill = col_black),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Col Black",
+       title = "College Percentage Black")
+
+ggplot() + 
+  geom_sf(spatial_data,
+          mapping = aes(fill = col_hispa),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Col Hispanic",
+       title = "College Percentage Hispanic")
+
+ggplot() + 
+  geom_sf(spatial_data,
+          mapping = aes(fill = col_asian),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Col Asian",
+       title = "College Percentage Asian")
+```
+
+```{r}
+county_dat <- left_join(get_urbn_map(map = "counties"),
+                          combined,
+                          by = "county_fips")
+county_inst <- county_dat %>%
+  group_by(county_fips) %>%
+  count(inst_name)
+
+withmissing <- county_inst %>%
+  count(county_fips)
+
+nomissing <- county_inst %>%
+  filter(!is.na(inst_name)) %>%
+  count(county_fips)
+
+withmissing$n <- ifelse(withmissing$county_fips %in% nomissing$county_fips,
+                        withmissing$n,
+                        0)
+count_dat <- withmissing
+
+
+ggplot(count_dat, aes(x = n)) + 
+  geom_histogram()
+
+ggplot(count_dat,aes(x = n)) + 
+  geom_histogram() + 
+  xlim(c(-1,10))
+sum(count_dat$n == 0)
+percent_missing <- sum(count_dat$n)/sum(sum(count_dat$n),sum(count_dat$n == 0))
+```
+
+
+
+```{r}
+hs_dat <- left_join(get_urbn_map(map = "counties",sf = TRUE),
+                          hsgrad,
+                          by = c("county_fips" = "fips"))
+hs_dat %>%
+  mutate(rate_2010pct = ifelse(rate_2010 < 0.75,NA,rate_2010)) %>%
+ggplot() + 
+  geom_sf(mapping = aes(fill = rate_2010pct),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Percentage",
+       title = "HS Graduation")
+
+
+hs_dat %>%
+  mutate(rankings = ifelse(rate_2010 <= 0.833,"Quantile 1 (<.833)",
+                           ifelse(rate_2010 > 0.833 & rate_2010 <= 0.883,"Quantile 2 (.833-.883)",
+                                  ifelse(rate_2010 > 0.883 & rate_2010 <= .915,"Quantile 3 (.883-.915)", "Quantile 4 (.915+)"))))%>%
+  ggplot() + 
+  geom_sf(mapping = aes(fill = rankings),
+          color = "#ffffff", size = 0.25) + 
+  labs(fill = "Percentage",
+       title = "HS Graduation")
+
+quantile(hs_dat$rate_2010,na.rm=T)
+```
+

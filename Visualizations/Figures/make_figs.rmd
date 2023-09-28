@@ -1,0 +1,634 @@
+---
+title: "Untitled"
+output: html_document
+date: '2022-11-10'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(urbnmapr)
+library(urbnthemes)
+library(plotly)
+library(trelliscopejs)
+library(reshape2)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(colourvalues)
+library(patchwork)
+library(randomForest)
+library(data.table)
+```
+
+## load csvs
+```{r}
+
+regions <- unique(read.csv("regional_designation.csv"))
+HO_data <- unique(read.csv("haf_data_all_counties_update.csv"))
+pop_density <- read.csv("Average_Household_Size_and_Population_Density_-_County.csv")
+# response_data <- read.csv("Perc_diff_HO_RACE_by_County.csv")
+importances_final <- read.csv("importances_final.csv", check.names = F)[-1]
+random_forest_models <-  readRDS("Main_effects_RF.RDS")
+
+var_desc <- read.csv("Variable_Descriptions.csv")
+
+
+finalM <- read.csv("final_model_df.csv")[-1]
+finalM <- finalM[!apply(is.na(finalM), 1, any),]
+
+```
+
+## Figure 1 - Maps
+```{r}
+
+## observed across all models 
+
+keeps <- unique(finalM$county_fips)
+cntys <- get_urbn_map("counties", sf = TRUE)
+cntys$observed <- "Not observed" 
+
+cntys$observed[as.numeric(cntys$county_fips) %in% keeps] <- "Observed"
+
+obs_plot <- ggplot() +
+      geom_sf(cntys,
+              mapping = aes(fill = observed),
+              color = "#ffffff", size = 0.25) +
+      labs(fill = "") + theme_bw()
+
+## Region designations
+region_join <- left_join(get_urbn_map("states", sf = TRUE), regions, by = c("state_name" = "State"))
+
+ region_plot <- ggplot() +
+   scale_fill_brewer(palette = "Spectral") +
+      geom_sf(region_join,
+              mapping = aes(fill = Division),
+              color = "#ffffff", size = 0.25) +
+      labs(fill = "") + theme_bw()
+ 
+
+## Join w/ other datasets
+cntys$county_fips <- as.numeric(cntys$county_fips)
+
+## Homeownership - foreclosure
+HO_join <-  left_join(cntys, HO_data, by = c("state_name" = "st", "county_name" = "county"))
+
+ HO_plot <- ggplot() +
+      geom_sf(HO_join,
+              mapping = aes(fill = log(predicted_foreclosure_rate)),
+              color = "#ffffff", size = 0.25) +
+      labs(fill = "log(foreclosure rate)") + theme_bw()  + 
+   scale_fill_continuous(type = "viridis")
+
+## Population density
+pd_join <-  left_join(cntys, pop_density, by = c("county_fips" = "GEOID"))
+
+
+pop_density_plot <- ggplot() +
+  geom_sf(pd_join,
+          mapping = aes(fill = log(B01001_calc_PopDensity)),
+          color = "#ffffff", size = 0.25) +
+  labs(fill = "log(population density)") + theme_bw()  + 
+scale_fill_continuous(type = "viridis")
+ 
+```
+
+```{r, warning=F}
+
+suppressMessages(
+  suppressWarnings(wrap_plots(region_plot + theme(text = element_text(size = 15)), 
+                      obs_plot + theme(text = element_text(size = 15)), 
+                      pop_density_plot+ theme(text = element_text(size = 15)),
+                      HO_plot+ theme(text = element_text(size = 15)), 
+                      nrow = 2) + patchwork::plot_annotation(tag_levels = "A")))
+
+```
+
+## Correlation heatmap
+
+```{r}
+
+d <- finalM[c(12:78, 81)] ## numeric predictors only
+d <- d[colnames(d) != "Race_employment"]
+
+## Remane columns as needed
+col_names <- as.list(colnames(d))
+names(col_names) <- colnames(d)
+for(colnm in colnames(d)){
+  var_replace <- var_desc$Simplified_Variable_Name[var_desc$Variable.Name == colnm]
+  if(length(var_replace) > 0) col_names[[colnm]] <- var_replace
+}
+colnames(d) <- as.character(col_names)
+
+d2 <- d %>% 
+  as.matrix %>%
+  cor(method = "spearman") %>%
+  as.data.frame %>%
+  rownames_to_column(var = 'var1') %>%
+  gather(var2, value, -var1)
+
+cors <- d %>%
+  as.matrix %>%
+  cor(method = "spearman")
+
+hclust_res <- hclust(dist(cors))
+
+## remove Race employment -- accounted for in other variables
+d2$var1 <- factor(d2$var1, colnames(cors)[hclust_res$order])
+d2$var2 <- factor(d2$var2, colnames(cors)[hclust_res$order])
+
+d2 <- d2[!is.na(d2$var1),]
+d2 <- d2[!is.na(d2$var2),]
+
+ggplot(d2, aes( x = var1, y = var2, fill = value)) + geom_tile() + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 270, hjust = 0, vjust = 0.5)) + 
+  labs(x = "", y = "", fill = "Correlation") + 
+  scale_fill_gradient2()
+
+d2
+
+```
+
+## Timeline graphic
+
+```{r}
+
+labs <- c("Building Permits", "Census Population Estimates",
+            "Census Population Change Estimates",
+            "DOD Per Diem Rates", "High School",
+            "Secondary Education", "Homeownership Demographics",
+            "Household Conditions", "Job Availability",
+            "Poverty Demographics", "Unequal Commute Times")
+
+yr_st <- c(2015, 2015, 2015, 2015, 2016, 2015, 2015, 2015, 2015, 2017, 2014)
+yr_ed <- c(2019, 2019, 2019, 2019, 2019, 2017, 2019, 2018, 2018, 2017, 2018)
+
+status <- c("Removed", "Kept", "Kept", "Kept", "Kept", "Removed",
+             "Kept", "Removed", "Kept", "Removed", "Kept")
+
+length(status)
+
+TimeData <- data.table(
+  Dataset = 1:11,
+  YearStart = yr_st,
+  YearEnd = yr_ed,
+  Status = status,
+  Label = labs
+) %>%
+  filter(Status == "Kept") %>%
+  mutate(YearCenter = (YearStart + YearEnd) / 2) %>%
+  mutate(Dataset = 1:7)
+
+thePlot <- ggplot(TimeData, aes(x = YearStart, xend = YearEnd, y = Dataset, yend = Dataset, label = Label)) +
+  geom_vline(xintercept = c(2015, 2019), color = "red") +
+  geom_segment() + geom_label(x = TimeData$YearCenter) + ylab("") + theme_minimal() + xlab("Years") +
+  theme(axis.text.y = element_blank()) + xlim(c(2014, 2020)) +
+  guides(fill=guide_legend(title="Status", override.aes = aes(label = ""))) 
+thePlot
+
+ggsave("Timeline_Graphic.png", path = "~/Downloads", width = 8, height = 4, units = "in")
+
+
+### Capitalize dataset names
+
+```
+
+
+## Figure 2 County homeownership equity
+
+
+```{r}
+
+dat <- unique(finalM)
+# dat <- unique(response_data)
+dat$HO_share <-  dat$HO_share*100
+dat$Race_frac <-  dat$Race_frac*100
+
+dat <- dat[!is.na(dat$HO_share),]
+dat <- dat[!is.na(dat$Race_frac),]
+
+dat <- dat[dat$RACE != "Other",]
+
+ggplot(dat, 
+     mapping = aes(y = HO_share, x = Race_frac)) + 
+  geom_hex(aes(fill = stat(log(count)))) +
+# geom_hex() +
+facet_wrap(vars(RACE), nrow = 2) +
+geom_segment(x = 0, y = 0, xend = 100, yend = 100, 
+             inherit.aes = F, color = "red", alpha = 0.5, linetype=2) +
+scale_x_continuous(limits = c(0,100)) +
+scale_y_continuous(limits = c(0,100)) +
+labs(y = paste("% homeowners"), 
+     x = paste("% in population ( Age > 19 )"),
+     title = "County Homeownership Equity") +
+  scale_fill_continuous("Log( N Counties )") + theme_bw() +
+  theme(text = element_text(size = 15))
+
+# Seeing weird banding patterns? Check your package, 3.4.0 appears to have an error
+# packageurl <- "https://cran.r-project.org/src/contrib/Archive/ggplot2/ggplot2_3.3.6.tar.gz"
+# install.packages(packageurl, repos=NULL, type="source")
+# library(ggplot2)
+# 
+
+## Sanity check
+# df <- data.frame(
+#   x = rnorm(10000),
+#   y = rnorm(10000)
+# )
+# 
+# plot.df <- ggplot(data = df, aes(x = x, y = y)) +
+#   geom_hex(aes(fill = stat(count)))
+# print(plot.df)
+
+```
+
+
+## Figure 3 Urban pop density plots
+```{r, echo=FALSE}
+
+data <- finalM ## you can call this on the earlier dataset to see results before filtering as well
+data$col <- colour_values(data$pop_density, palette = "viridis")
+data$st = tolower(data$st)
+data$county = tolower(data$county)
+
+# regions <- regions
+# colnames(regions) <- c("st", "state_abbv", "Region", "Division")
+# regions$st <- tolower(regions$st)
+# 
+# data <- merge(data, regions , by=c("st"))
+
+white <- subset(data, RACE=="White")
+black <- subset(data, RACE=="Black")
+hispanic <- subset(data, RACE=="Hispanic")
+asian <- subset(data, RACE=="Asian")
+
+```
+
+```{r quantiles funcs, echo=FALSE}
+
+data_1000up = subset(data, pop_density>1000)
+data_500down = subset(data, pop_density<500)
+
+p1 <- ggplot(data_500down, aes(HO_over_Race, color=RACE))+
+  geom_boxplot(show.legend = F)+
+  lims(x = c(0, 2.5)) +
+  #scale_y_continuous(trans='log10')+
+  ggtitle("Rural populations")+
+  labs(x = 'Response', color  = "")+
+  theme_bw() +
+  geom_vline(xintercept = 1, linetype = 2) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+  
+
+p2 <- ggplot(data_1000up, aes(HO_over_Race, color=RACE))+
+  geom_boxplot()+
+  #scale_y_continuous(trans='log10')+
+  ggtitle("Urban populations")+
+  lims(x = c(0, 2.5)) +
+  labs(x = 'Response', color  = "")+
+  theme_bw()+
+  geom_vline(xintercept = 1, linetype = 2) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+wrap_plots(p1 + theme(text = element_text(size = 12)), 
+                      p2 + theme(text = element_text(size = 12)), 
+                      ncol = 2) #+ patchwork::plot_annotation(tag_levels = "A")
+
+
+## Really not a lot of representation in final model for urban populations 
+table(data_500down$RACE)
+table(data_1000up$RACE)
+
+table(data_500down[data_500down$Race_pop > 500,]$RACE)
+table(data_1000up[data_1000up$Race_pop > 500,]$RACE)
+  
+```
+
+## Figure 4 Random forest performance based on population cut-off -- ought to be re-run with out new schema :(
+```{r}
+
+# nested <- finalM %>% group_by(RACE) %>% nest()
+# 
+# cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
+# 
+# res <- map(nested$data, function(subdata){
+#   
+#   ## counties present per state before filters
+#   og_counties <- table(subdata$st)
+#   
+#   ## run for each cut
+#   res_quantile <- map(
+#   cutt_offs, 
+#   function(cut){
+#     
+#     print(cut)
+#   
+#   # pop filter
+#   if(all(cut > 1)){
+#     subdata <- subdata[subdata$Race_pop > cut,]
+#   } else {
+#     subdata <- subdata[subdata$Race_pop > quantile(subdata$Race_pop, cut),]
+#   }
+#     
+#   ## after filtering counties per state
+#   filtered_counties_post_filt <- table(subdata$st)
+# 
+#   ## Col reduction
+#   subdata <- subdata[c(1, 10:ncol(subdata))]
+#   subdata <- subdata[!(colnames(subdata) %in% "Race_employment")]
+#   
+#   ## row reduction
+#   subdata <- subdata[!apply(is.na(subdata), 1, any),]
+#   
+#     ## after filtering counties per state
+#   filtered_counties_post_rr <- table(subdata$st)
+#   
+#       removed_df <- data.frame(
+#       state = names(og_counties),
+#       before = as.numeric(og_counties)
+#       )
+#     removed_df2 <- data.frame(
+#       state = names(filtered_counties_post_filt),
+#       after_filt = as.numeric(filtered_counties_post_filt)
+#       )
+#     removed_df3 <- data.frame(
+#       state = names(filtered_counties_post_rr),
+#       after_rr = as.numeric(filtered_counties_post_rr)
+#       )
+#   
+#   removed_df <- left_join(left_join(removed_df, removed_df2), removed_df3)
+#   removed_df$cut <- cut
+#   removed_df$reduced_pop <- (removed_df$before-removed_df$after_filt)/removed_df$before
+#   removed_df$reduced_rr <- (removed_df$before-removed_df$after_rr)/removed_df$before
+#   
+#   ## remove state desig
+#   subdata <- subdata[-1]
+#   
+#   ## run RFs
+#   rfs <- map(1:10, 
+#              function(n){
+#     print(n)
+#       # Splitting data in train and test data
+#     split <- sample.split(subdata$HO_over_Race, SplitRatio = 0.7)
+#       
+#     train <- subdata[split,]
+#     test <- subdata[!split,]
+#       
+#     # Fitting Random Forest to the train dataset
+#     set.seed(120)  # Setting seed
+#     classifier_RF <- randomForest(
+#       x = train[-1],
+#       y = train$HO_over_Race,
+#       xtest = test[-1],
+#       ytest = test$HO_over_Race,
+#       ntree = 500,
+#       importance = T,
+#       proximity = T
+#       )
+#     
+#   })
+#   
+#   list(
+#   rfs,
+#   removed_df
+#   )
+#     
+#   })
+#   
+#   names(res_quantile) <- as.character(cutt_offs)
+#   res_quantile
+# })
+# 
+# names(res) <- nested[[1]]
+
+# res <- saveRDS(res, "RF.RDS")
+
+```
+
+```{r}
+res <- readRDS("RF.RDS")
+
+cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
+
+df_rf_res <- map_dfr(names(res), function(race){
+  cut_res_pop <- map_dfr(as.character(cutt_offs), function(n){
+
+    ## E.g. rf for >200 folks
+    rf_co <- res[[race]][[n]][[1]]
+
+    var_exp <- map_dbl(rf_co, function(rf) rf$rsq[length(rf$rsq)] * 100)
+    mse_all <- map_dbl(rf_co, function(rf) rf$mse[length(rf$mse)])
+
+    data.frame(
+      Varience_explained = var_exp,
+      MSE = mse_all,
+      pop = n
+    )
+
+  })
+
+  cut_res_pop$race <- race
+
+  cut_res_pop
+
+})
+
+df_rf_res$pop <- factor(df_rf_res$pop, levels = cutt_offs)
+
+p_1 <- ggplot(df_rf_res, aes(y = Varience_explained, x = pop, color = race)) +
+  geom_boxplot() + theme_bw() + labs(x = "Population minimum", y = "Pseudo R^2", color = "")+ theme(text = element_text(size = 15))
+
+p_2 <- ggplot(df_rf_res, aes(y = MSE, x = pop, color = race)) +
+  geom_boxplot() + theme_bw() + labs(x = "Population minimum", color = "")+ theme(text = element_text(size = 15))
+
+wrap_plots(p_1, p_2, ncol = 2, guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+```
+
+## by region/state pop reduction
+```{r}
+res <- readRDS("RF.RDS")
+cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
+
+presence_df <- map_dfr(names(res), function(race){
+  df <- map_dfr(res[[race]], 2)
+  df$RACE <- race
+  df
+})
+
+temp <- unique(presence_df[1:2])
+presence_df$state <- factor(presence_df$state, temp$state[order(temp$before)])
+presence_df$cut <- factor(presence_df$cut, cutt_offs)
+
+presence_df <- left_join(presence_df, regional_data, by = c(state = "State"))
+
+pop_plots <- map(cutt_offs[-1], function(cut){
+  df <- presence_df[presence_df$cut == cut,]
+  stdf <- df %>% group_by(RACE) %>%
+    summarise(n_counties_after = sum(after_rr, na.rm = T))
+  
+  ann_text <- apply(stdf, 1, 
+                    function(row) paste(row[1], "-", 
+                                        row[2], "/", 
+                                        sum(temp$before), "counties"))
+  st1 <- paste(ann_text[2:1], collapse = "              ")
+  st2 <- paste(ann_text[4:3], collapse = "         ")
+  st <- paste(st1, st2, collapse = "\n")
+  
+  ggplot(df, aes(x = state, y = reduced_pop, fill = RACE)) +
+  geom_col(position = "dodge") +
+    scale_y_continuous(limits = c(0, 1)) +
+  facet_grid(~ Division, 
+             scales = "free_x",
+             space = "free_x",
+             switch = "x") +
+    labs(y = "Proportion of counties excluded", x = "", 
+         title = paste("Population cut-off:", cut),
+         subtitle = paste(c(st1, st2), collapse = "\n")) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+})
+
+```
+
+
+## Variable Importance
+
+## Figure 7 importance boxplots (top 20)
+```{r}
+
+## each data
+
+## good models only
+importance_good <- importances_final[importances_final$Validation_rsq > 0.1,]
+
+## Best features by top 5% quantile of %IncMSE
+top_20s <- importance_good %>% group_by(Holdout_Division, Race) %>%
+  summarise(
+    Feature = Feature[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    top_incmse = `%IncMSE`[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    NP = IncNodePurity[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    rsq = Validation_rsq[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_val = Validation_mse[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_test = Test_mse[`%IncMSE` > quantile(`%IncMSE`, .95)]
+  )
+
+```
+
+```{r}
+
+top_20s_sub <- top_20s
+
+for(row in 1:nrow(var_desc)){
+  var_search <- var_desc[row, "Variable.Name"]
+  var_replace <- var_desc[row, "Simplified_Variable_Name"]
+  top_20s_sub$Feature <- str_replace_all(top_20s_sub$Feature, var_search, var_replace)
+}
+
+
+top_imp_plots <- map(unique(top_20s_sub$Race), function(race){
+  
+  df <-  top_20s_sub[top_20s_sub$Race == race,]
+  
+  med_mse <- df %>% group_by(Feature) %>% summarise(med_incmse = median(top_incmse))
+  
+  leveler <- arrange(med_mse, desc(med_incmse))$Feature
+  
+  df$Feature <- factor(df$Feature, levels = leveler)
+  
+  p <- ggplot(df, 
+         aes(y = Feature, x = top_incmse)) + 
+  geom_boxplot(show.legend = F) + theme_bw() + 
+    geom_point(aes(color = Holdout_Division), show.legend = race == "Asian") 
+  p + labs(y = "", x = "% Increase in MSE",
+           title = paste0(race, " models")) + ggplot2::scale_color_discrete()
+  
+})
+
+names(top_imp_plots) <- c("A", "B", "C", "D")
+
+patchwork::wrap_plots(top_imp_plots, guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+```
+
+## Figure 8 marginal effects
+```{r}
+
+
+div <- "Pacific"
+finalM2 <- finalM[finalM$Race_pop > 500,]
+finalM2 <- finalM2[!apply(is.na(finalM2), 1, any),]
+finalM2 <- finalM2[finalM2$Division != div,]
+
+par(mfrow = c(2, 2))
+for(race in unique(finalM2$RACE)){
+  rf <- random_forest_models[[race]][[div]]
+  
+  finalM_train <-  finalM2[finalM2$RACE == race,]
+  finalM_train <- finalM_train[which(colnames(finalM_train) %in% row.names(rf$importance))]
+  
+  partialPlot(rf, finalM2, "Less.than.high.school", 
+              xlab = "Workers w/ < high school education",
+            ylab = "Marginal effect on response", main = race)
+  
+}
+
+
+
+
+```
+
+
+## Trelliscope of hexplots and a single example
+
+```{r}
+
+imp_cols <- finalM[colnames(finalM) %in% top_20s$Feature]
+
+# non numeric
+imp_cols2 <- imp_cols[!apply(is.na(apply(imp_cols, 2, as.numeric)), 2, any)]
+
+imp_cols_plotter <- cbind(finalM[c("HO_over_Race", "RACE")], imp_cols2) 
+
+# No division for hexplots
+ 
+imp_cols_plotter2 <- melt(imp_cols_plotter, id.vars = c("HO_over_Race", "RACE"), variable.name = "Predictor")
+
+nest_imp_plotter <- imp_cols_plotter2 %>% group_by(Predictor) %>% nest()
+plot_hex <- function(pred){
+  df <- nest_imp_plotter$data[[which(nest_imp_plotter$Predictor == pred)]]
+  ggplot(df, 
+     mapping = aes(y = HO_over_Race - 1, x = value)) + 
+    geom_hex(aes(fill = stat(log(count)))) +
+  facet_wrap(vars(RACE), nrow = 2) +
+    geom_hline(yintercept = 0, color = "red", alpha = 0.5, linetype=2) +
+  labs(y = paste("Distance from equity"),
+       x = pred,
+       title = "") +
+    scale_fill_continuous("Log( N Counties )") + theme_bw() +
+    theme(text = element_text(size = 10))
+}
+
+trell_df <- mutate(ungroup(nest_imp_plotter), 
+       panel = map_plot(nest_imp_plotter$Predictor, plot_hex))
+
+trelliscope(trell_df, name = "Hex_plots_Eq_dist", path = "./Trelliscope_eq")
+
+ggplot(finalM, 
+     mapping = aes(y = HO_over_Race, x = `Less.than.high.school`)) + 
+  geom_hex(aes(fill = stat(log(count)))) +
+facet_wrap(vars(RACE), nrow = 2) +
+labs(y = paste("Response"), 
+     x = "jobLessHS",
+     title = "") +
+  scale_fill_continuous("Log( N Counties )") + theme_bw() +
+  theme(text = element_text(size = 15))
+
+```
+
+
+
+

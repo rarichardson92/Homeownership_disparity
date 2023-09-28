@@ -1,0 +1,356 @@
+---
+title: "processing_data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(urbnmapr)
+library(urbnthemes)
+library(plotly)
+library(trelliscopejs)
+library(reshape2)
+```
+
+
+## Grab population data -- load from census_processing.rmd
+```{r}
+
+#https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/
+
+## Age, sex, race, hispanic origin
+## immagration and migration patterns
+## by year
+# pop_data2<- read.csv("../population_demo_by_county_2015_2019.csv.csv")
+
+pop_data2 <- readRDS("./Census_pop_data.rds")
+```
+
+## Find fractions of race from census data
+```{r}
+
+## Select age range appropriate for home ownership
+not_age <- c(
+  "Total", "Age 0 to 4 years", "Age 5 to 9 years", "Age 10 to 14 years", "Age 15 to 19 years"
+)
+
+total_pop_age_range <- pop_data2[Reduce("&", 
+                                        list(pop_data2$RACE == "All", ## All races
+                                        pop_data2$Hispanic == "All", ## Both hispanic and non-hispanic
+                                        !(pop_data2$Age_desc %in% not_age), ## Age restricted
+                                        pop_data2$include_innerracial == "All", ## include multi-racial
+                                        pop_data2$Sex == "All" ## both genders
+                                        )
+                                   ),]
+
+
+by_race_age_range <- pop_data2[Reduce("&", 
+                                        list(!(pop_data2$RACE %in% c("All", "Two or more races")),
+                                        pop_data2$Hispanic == "All",
+                                        !(pop_data2$Age_desc %in% not_age),
+                                        pop_data2$include_innerracial == "TRUE"#,
+                                        # pop_data2$Sex == "All"
+                                        )
+                                   ),]
+
+hisp_only_by_race_age_range <- pop_data2[Reduce("&", 
+                                        list(!(pop_data2$RACE %in% c("All", "Two or more races")),
+                                        pop_data2$Hispanic == "TRUE",
+                                        !(pop_data2$Age_desc %in% not_age),
+                                        pop_data2$include_innerracial == "TRUE"#,
+                                        # pop_data2$Sex == "All"
+                                        )
+                                   ),]
+
+total_pop <- total_pop_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc) %>%
+  summarise(
+    Total_pop = sum(Count, na.rm = T)
+  )
+
+by_race_age_range$RACE <- gsub("American Indian or Alaska Native", 
+                               "Other", by_race_age_range$RACE)
+by_race_age_range$RACE <- gsub("Native Hawaiian or Other Pacific Islander", 
+                               "Other", by_race_age_range$RACE)
+
+by_race_tot <- by_race_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc, 
+                                              RACE) %>%
+  summarise(
+    Race_pop = sum(Count, na.rm = T)
+  )
+
+hisp_tot <- hisp_only_by_race_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc) %>%
+  summarise(
+    RACE = "Hispanic",
+    Race_pop = sum(Count, na.rm = T)
+  )
+
+by_race_tot2 <- rbind(by_race_tot, hisp_tot)
+
+pop_by_county <- left_join(total_pop, by_race_tot2)
+
+pop_by_county <- pop_by_county %>% group_by(STNAME, CTYNAME, RACE) %>%
+  summarise(Race_pop = mean(Race_pop, na.rm = T),
+            Total_pop = mean(Total_pop, na.rm = T))
+
+pop_by_county$Race_frac <- pop_by_county$Race_pop/pop_by_county$Total_pop
+
+pop_by_county[pop_by_county$CTYNAME == "Autauga County",]
+
+```
+
+## Load household data
+```{r}
+
+data <- read.csv("./homeownership/haf_data_all_counties_update.csv")
+definitions <- read.csv("./homeownership/haf_data_dictionary_0_updated.csv")
+
+# PUMA, Public Use Microdata Areas
+# https://www.psc.isr.umich.edu/dis/census/Features/puma2cnty/
+print(definitions$Description[1])
+
+definitions
+
+## Some counties have 2 entries
+data2 <- data %>% group_by(
+  puma_estimate,
+  st,
+  county
+) %>% summarise(
+  h1 = mean(homeowners_less_100ami, na.rm = T),
+  h2 = mean(homeowners_less_150ami, na.rm = T),
+  h3 = mean(mortgage_less_100ami, na.rm = T),
+  h4 = mean(mortgage_less_150ami, na.rm = T),
+  h5 = mean(total_homeowners, na.rm = T),
+  h6 = mean(total_mortgages, na.rm = T),
+  h7 = mean(X100to150_ami_non_white, na.rm = T),
+  h8 = mean(X100to150_ami_white, na.rm = T),
+  h9 = mean(predicted_foreclosure_rate, na.rm = T),
+  h10 = mean(black_ho_share, na.rm = T),
+  h11 = mean(white_ho_share, na.rm = T),
+  h12 = mean(asian_ho_share, na.rm = T),
+  h13 = mean(hisp_ho_share, na.rm = T),
+  h14 = mean(other_ho_share, na.rm = T),
+  h15 = mean(mortgage_share, na.rm = T),
+  h16 = mean(med_owner_cost, na.rm = T),
+  h17 = mean(med_owncost_income_ratio, na.rm = T),
+  h18 = mean(cost_burden, na.rm = T),
+  h19 = mean(share_cost_burden, na.rm = T),
+  h20 = mean(share_severe_burden, na.rm = T)
+)
+
+colnames(data2) <- colnames(data)
+
+data <- data2
+
+```
+
+
+## Align county names
+```{r}
+
+## Homeowner data
+data_updated <- data
+
+data_updated$county[data_updated$county == "Petersburg Borough"] <- "Petersburg Census Area"
+rp <- Reduce("&", list(data_updated$county == "La Salle County",
+                 data_updated$st == "Illinois"))
+data_updated[rp, "county"] <- "LaSalle County"
+data_updated 
+
+## Census data
+pop_by_county$CTYNAME[pop_by_county$CTYNAME == "Petersburg Borough"] <- "Petersburg Census Area"
+pop_by_county$CTYNAME[pop_by_county$CTYNAME == "Do\xf1a Ana County"] <- "Dona Ana County"
+pop_by_county$CTYNAME[pop_by_county$CTYNAME == "LaSalle Parish"] <- "La Salle Parish"
+
+```
+
+## Adjust homeowner data for full info, include location
+```{r}
+household_data <- left_join(data_updated, 
+                            counties, by = c("county" = "county_name", "st" = "state_name")) 
+
+totho <- household_data["total_homeowners"]
+
+## get percents for homeowners_less_100ami, homeowners_less_150ami, mortgage_less_100am, 
+## X100to150_ami_non_white, X100to150_ami_white mortgage_less_150ami
+household_data["perc_homeowners_less_100ami"] <- household_data["homeowners_less_100ami"]/totho
+household_data["perc_homeowners_less_150ami"] <- household_data["homeowners_less_150ami"]/totho
+household_data["perc_mortgage_less_100ami"] <- household_data["mortgage_less_100ami"]/totho
+household_data["perc_mortgage_less_150ami"] <- household_data["mortgage_less_150ami"]/totho
+household_data["perc_X100to150_ami_non_white"] <- household_data["X100to150_ami_non_white"]/totho
+household_data["perc_X100to150_ami_white"] <- household_data["X100to150_ami_white"]/totho
+
+## back-calculate 50%+ of annual count, ethnicity percentages, foreclosure rate
+household_data["predicted_foreclosures"] <- household_data["predicted_foreclosure_rate"]*totho
+household_data["black_ho"] <- household_data["black_ho_share"]*totho
+household_data["white_ho"] <- household_data["white_ho_share"]*totho
+household_data["asian_ho"] <- household_data["asian_ho_share"]*totho
+household_data["hisp_ho"] <- household_data["hisp_ho_share"]*totho
+household_data["other_ho"] <- household_data["other_ho_share"]*totho
+household_data["count_severe_burden"] <- household_data["share_severe_burden"]*totho
+
+## back-calculate incomes
+household_data["monthly_income"] <- household_data["med_owner_cost"]/household_data["med_owncost_income_ratio"]
+
+household_data["yearly_income"] <- household_data["monthly_income"]*12
+```
+
+
+```{r}
+## Incorperate household data
+melt_hd <- household_data %>% reshape2::melt(
+  id.vars = c("puma_estimate", "st", "county", "hole", "piece", "group", "county_fips", "state_abbv", "state_fips", "fips_class", "order", "lat", "long"), variable.name = "Metric"
+)
+
+ho_shares <- melt_hd[melt_hd$Metric %in% c("hisp_ho_share", "other_ho_share", "black_ho_share", "white_ho_share", "asian_ho_share"),] 
+
+ho_shares$RACE <- str_to_title(gsub("_ho_share", "", ho_shares$Metric))
+ho_shares$RACE <- gsub("Hisp", "Hispanic", ho_shares$RACE)
+ho_shares$HO_share <- ho_shares$value
+
+census_ho_data <- left_join(ho_shares, pop_by_county, 
+                            by = c(RACE = "RACE", st = "STNAME", county = "CTYNAME"))
+
+census_ho_data$Perc_diff <- census_ho_data$Race_frac - census_ho_data$HO_share
+census_ho_data$HO_over_Race <- census_ho_data$HO_share/census_ho_data$Race_frac
+
+```
+
+
+```{r}
+
+red_cols <- c("st", "state_abbv", "county", "county_fips", "Race_pop",
+                   "RACE", "Total_pop", "Race_frac", 
+                   "HO_share", "Perc_diff", "HO_over_Race")
+
+reduced_columns <- unique(census_ho_data[red_cols])
+
+# reduced_columns <- unique(left_join(reduced_columns, household_data[c("st", "county", "total_homeowners")]))
+# 
+# reduced_columns$pred_n_homes <- reduced_columns$total_homeowners*reduced_columns$HO_share
+
+write.csv(reduced_columns, "Perc_diff_HO_RACE_by_County.csv")
+
+reduced_columns
+length(reduced_columns$HO_over_Race)
+```
+
+
+```{r}
+
+
+## Race fac - HO shares
+
+plots <- list()
+for(race in unique(census_ho_data$RACE)){
+  df <- census_ho_data[census_ho_data$RACE == race,]
+  df2 <- unique(df[red_cols])
+  title <- race
+  
+  plots$proportions[[title]] <- ggplot(data = df2, 
+         aes(x = Race_frac, y = HO_share)) +
+  geom_point() + 
+    geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+  
+    plots$maps[[title]] <- ggplot(
+    df, aes(x = long, y = lat, group = group, 
+            fill = HO_over_Race, text = paste0(county, "\n", st))) + 
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "", title = paste0(title, ", Home Ownership in county/Race proportion in county")) +
+  scale_fill_distiller(palette = 'Spectral')
+  
+}
+```
+
+
+```{r}
+
+df <- reduced_columns
+df <- df[!is.na(df$HO_over_Race),]
+df <- df[!is.infinite(df$HO_over_Race),]
+
+boxplot(HO_over_Race ~ RACE, df)
+boxplot(log(HO_over_Race) ~ RACE, df)
+
+# Reduce("&", list(reduced_columns$RACE == "Asian", reduced_columns$HO_over_Race)
+
+df2 <- df[df$HO_over_Race < 50,]
+
+boxplot(HO_over_Race ~ RACE, df2)
+boxplot(log(HO_over_Race) ~ RACE, df2)
+
+```
+
+```{r}
+
+small_pop <- quantile(df$Race_pop, .25)
+big_pop_df <- df[df$Race_pop > small_pop, ]
+boxplot(HO_over_Race ~ RACE, big_pop_df)
+```
+
+```{r}
+upper1 <- quantile(big_pop_df$HO_over_Race, .99)
+
+big_pop_df$Outlier <- big_pop_df$HO_over_Race > upper1
+
+outliers <- big_pop_df[big_pop_df$HO_over_Race > upper1, ]
+
+
+  ggplot(data = big_pop_df, 
+         aes(y = Race_pop, x = HO_over_Race, color = Outlier)) +
+  geom_point() + 
+    # geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+  
+    ggplot(data = big_pop_df[big_pop_df$RACE == "Other",], 
+         aes(y = Race_pop, x = HO_over_Race, color = Outlier)) +
+  geom_point() + 
+    # geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+    
+    ggplot(data = big_pop_df[big_pop_df$RACE == "Other",], 
+         aes(y = Race_pop, x = Race_frac, color = Outlier)) +
+  geom_point() + 
+    # geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+    
+    ggplot(data = big_pop_df[big_pop_df$RACE == "Other",], 
+         aes(y = Race_pop, x = HO_share, color = Outlier)) +
+  geom_point() + 
+    # geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+
+outliers_map <- left_join(counties, outliers)
+  
+  ggplot(data = outliers, 
+         aes(x = Race_frac, y = HO_share)) +
+  geom_point() + 
+    geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1), color = "black") + 
+    labs(title = title) 
+  
+  ggplot(
+    outliers_map, aes(x = long, y = lat, group = group, 
+            fill = HO_over_Race, text = paste0(county, "\n", st))) + 
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "", title = paste0(title, ", Home Ownership in county/Race proportion in county")) +
+  scale_fill_distiller(palette = 'Spectral')
+
+  outliers[outliers$Race_pop > 200000,]
+  
+  
+## Other for homeownership includes many other races, not just indigenous
+## where tf can I pull this other data from?
+outliers[outliers$state_abbv == "WA", ]
+
+```
+
+```{r}
+plots$maps
+```

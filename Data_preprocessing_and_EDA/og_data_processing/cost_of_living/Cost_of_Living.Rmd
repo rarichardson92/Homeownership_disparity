@@ -1,0 +1,69 @@
+---
+title: "DOD Per Diem Rates as Proxy for Cost of Living"
+author: "Natalie Winans"
+date: "3/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(GGally)
+```
+
+
+```{r}
+conus2015 <- read_xls("../../og_data/cost_of_living/conus2015.xls") %>% mutate(Year = 2015)
+conus2016 <- read_xls("../../og_data/cost_of_living/conus2016.xls") %>% mutate(Year = 2016)
+conus2017 <- read_xls("../../og_data/cost_of_living/conus2017.xls") %>% mutate(Year = 2017)
+conus2018 <- read_xls("../../og_data/cost_of_living/conus2018.xls") %>% mutate(Year = 2018)
+conus2019 <- read_xls("../../og_data/cost_of_living/conus2019.xls") %>% mutate(Year = 2019)
+```
+
+
+```{r}
+conus_all_years <- rbind(conus2015, conus2016, conus2017, conus2018, conus2019)
+
+perDiem_by_county <- conus_all_years %>% 
+  select(Year, State, County, Lodging, `Local Meal Rate`, `Maximum Per Diem`) %>% 
+  group_by(State, County) %>% 
+  summarize(mean_per_diem = mean(`Maximum Per Diem`),
+            mean_lodging = mean(Lodging),
+            mean_meal_rate = mean(`Local Meal Rate`)) %>% 
+  mutate(State = str_to_title(State),
+         County = str_to_title(County)) %>% 
+  ungroup()
+```
+
+```{r}
+
+write_csv(perDiem_by_county, file = "perDiem_by_county_15-19.csv")
+```
+
+# Data Exploration
+
+```{r}
+ggpairs(perDiem_by_county, columns = c(3,4,5))
+```
+
+```{r}
+perDiem_by_county %>% 
+  select(mean_lodging, mean_meal_rate, mean_per_diem) %>% 
+  pivot_longer(cols = everything(), names_to = "Expenditure", values_to = "Rate") %>% 
+  ggplot(aes(x = Expenditure, y = Rate)) +
+  geom_boxplot()
+```
+
+## Average Max Per Diem by County
+```{r}
+perDiem_by_county %>% 
+  pull(mean_per_diem) %>% 
+  hist(main = "Histogram of Mean Per Diem by County", xlab = "Rate")
+```
+
+
+

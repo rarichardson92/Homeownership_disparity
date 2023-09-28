@@ -1,0 +1,915 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(urbnmapr)
+library(urbnthemes)
+library(plotly)
+library(trelliscopejs)
+library(reshape2)
+```
+
+2015-2019
+Homeowner demographics by county recording race, area-median-income, cost of homeownership, and active mortgages, used to calculate other statistics useful for policymakers to better target Homeowner Assistance Fund dollars to the homeowners most in need; including median-monthly-ownership cost to income ratio and homeowners cost-burdened and severely cost-burdened in each county.
+
+
+### Years of collection, level, etc. across datasets
+
+https://www.census.gov/data/developers/data-sets/acs-5year.html 
+
+This dataset includes homeowners’ demographic and income characteristics and assesses foreclosure risk in counties across the country. With these data, policymakers can better target Homeowner Assistance Fund dollars to the homeowners most in need.
+
+This dataset contains the following information for counties in every state:
+
+number of homeowners with incomes below 100 percent of the area median income, broken out by all homeowners and those with an active mortgage (2019 American Community Survey data, five-year estimates)
+
+number of homeowners with incomes below 150 percent of the area median income, broken out by all homeowners and those with an active mortgage (2019 American Community Survey data, five-year estimates)
+
+number of homeowners of color making between 100 and 150 percent of the area median income (2019 American Community Survey data, five-year estimates)
+
+a predictive foreclosure rate showing foreclosures as a share of total homeowners, based on economic and housing market conditions (Urban Institute data)
+
+share of all homeowners, by race or ethnicity (2019 American Community Survey data, five-year estimates)
+
+median monthly housing costs and the share of homeowners who are cost burdened, defined as those spending at least 30 percent of annual income on housing (2019 American Community Survey data, five-year estimates)
+
+
+# area median income
+
+```{r}
+
+data <- read.csv("./haf_data_all_counties_update.csv")
+definitions <- read.csv("./haf_data_dictionary_0_updated.csv")
+
+# PUMA, Public Use Microdata Areas
+# https://www.psc.isr.umich.edu/dis/census/Features/puma2cnty/
+print(definitions$Description[1])
+
+definitions
+
+## Some counties have 2 entries
+data2 <- data %>% group_by(
+  puma_estimate,
+  st,
+  county
+) %>% summarise(
+  h1 = mean(homeowners_less_100ami, na.rm = T),
+  h2 = mean(homeowners_less_150ami, na.rm = T),
+  h3 = mean(mortgage_less_100ami, na.rm = T),
+  h4 = mean(mortgage_less_150ami, na.rm = T),
+  h5 = mean(total_homeowners, na.rm = T),
+  h6 = mean(total_mortgages, na.rm = T),
+  h7 = mean(X100to150_ami_non_white, na.rm = T),
+  h8 = mean(X100to150_ami_white, na.rm = T),
+  h9 = mean(predicted_foreclosure_rate, na.rm = T),
+  h10 = mean(black_ho_share, na.rm = T),
+  h11 = mean(white_ho_share, na.rm = T),
+  h12 = mean(asian_ho_share, na.rm = T),
+  h13 = mean(hisp_ho_share, na.rm = T),
+  h14 = mean(other_ho_share, na.rm = T),
+  h15 = mean(mortgage_share, na.rm = T),
+  h16 = mean(med_owner_cost, na.rm = T),
+  h17 = mean(med_owncost_income_ratio, na.rm = T),
+  h18 = mean(cost_burden, na.rm = T),
+  h19 = mean(share_cost_burden, na.rm = T),
+  h20 = mean(share_severe_burden, na.rm = T)
+)
+
+colnames(data2) <- colnames(data)
+
+data <- data2
+
+```
+
+
+### Take a look at possible interdependent relationships
+
+```{r}
+data
+data[which(!(data$county %in% counties$county_name)),]
+#Petersburg Borough == "Petersburg Census Area"
+#  La Salle County, illinois == LaSalle County illinois
+
+# print(data[data$st == "Alaska",])
+# unique(counties$county_name[counties$state_name == "Alaska"])
+
+data_updated <- data
+
+data_updated$county[data_updated$county == "Petersburg Borough"] <- "Petersburg Census Area"
+rp <- Reduce("&", list(data_updated$county == "La Salle County",
+                 data_updated$st == "Illinois"))
+data_updated[rp, "county"] <- "LaSalle County"
+
+data_updated 
+```
+
+```{r}
+
+all_cols <- colnames(data_updated)
+
+## Puma estimate
+
+plotable_cols <- all_cols[!all_cols %in% c("st", "county", "puma_estimate")]
+
+# map(plotable_cols, function(col) boxplot(data_updated[col], xlab = col))
+# 
+# pairs(data_updated[plotable_cols[1:10]])
+# pairs(data_updated[plotable_cols[11:20]])
+
+```
+
+
+https://urban-institute.medium.com/how-to-create-state-and-county-maps-easily-in-r-577d29300bb2
+
+## We like consistency - convert some stuff
+```{r}
+
+household_data <- left_join(data_updated, counties, by = c("county" = "county_name", "st" = "state_name")) 
+
+totho <- household_data["total_homeowners"]
+
+## get percents for homeowners_less_100ami, homeowners_less_150ami, mortgage_less_100am, 
+## X100to150_ami_non_white, X100to150_ami_white mortgage_less_150ami
+household_data["perc_homeowners_less_100ami"] <- household_data["homeowners_less_100ami"]/totho
+household_data["perc_homeowners_less_150ami"] <- household_data["homeowners_less_150ami"]/totho
+household_data["perc_mortgage_less_100ami"] <- household_data["mortgage_less_100ami"]/totho
+household_data["perc_mortgage_less_150ami"] <- household_data["mortgage_less_150ami"]/totho
+household_data["perc_X100to150_ami_non_white"] <- household_data["X100to150_ami_non_white"]/totho
+household_data["perc_X100to150_ami_white"] <- household_data["X100to150_ami_white"]/totho
+
+## back-calculate 50%+ of annual count, ethnicity percentages, foreclosure rate
+household_data["predicted_foreclosures"] <- household_data["predicted_foreclosure_rate"]*totho
+household_data["black_ho"] <- household_data["black_ho_share"]*totho
+household_data["white_ho"] <- household_data["white_ho_share"]*totho
+household_data["asian_ho"] <- household_data["asian_ho_share"]*totho
+household_data["hisp_ho"] <- household_data["hisp_ho_share"]*totho
+household_data["other_ho"] <- household_data["other_ho_share"]*totho
+household_data["count_severe_burden"] <- household_data["share_severe_burden"]*totho
+
+## back-calculate incomes
+household_data["monthly_income"] <- household_data["med_owner_cost"]/household_data["med_owncost_income_ratio"]
+
+household_data["yearly_income"] <- household_data["monthly_income"]*12
+```
+
+Overall population, ethnicity population density, age population density could contribute to overall understanding
+Other similar reports may assist in tracking trends over time (2009-2014)
+Split out by year vs not
+
+
+## Grab population data as well
+```{r}
+
+#https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/
+
+## Age, sex, race, hispanic origin
+## immagration and migration patterns
+## by year
+pop_data1 <- read.csv("../census/population_influx_by_county_2015_2019.csv")
+pop_data2 <- read.csv("../census/population_demo_by_county_2015_2019.csv")
+
+```
+
+
+```{r}
+
+not_age <- c(
+  "Total", "Age 0 to 4 years", "Age 5 to 9 years", "Age 10 to 14 years", "Age 15 to 19 years"
+)
+
+total_pop_age_range <- pop_data2[Reduce("&", 
+                                        list(pop_data2$RACE == "All",
+                                        pop_data2$Hispanic == "All",
+                                        !(pop_data2$Age_desc %in% not_age),
+                                        pop_data2$include_innerracial == "All",
+                                        pop_data2$Sex == "All"
+                                        )
+                                   ),]
+
+
+by_race_age_range <- pop_data2[Reduce("&", 
+                                        list(!(pop_data2$RACE %in% c("All", "Two or more races")),
+                                        pop_data2$Hispanic == "All",
+                                        !(pop_data2$Age_desc %in% not_age),
+                                        pop_data2$include_innerracial == "TRUE"#,
+                                        # pop_data2$Sex == "All"
+                                        )
+                                   ),]
+
+hisp_only_by_race_age_range <- pop_data2[Reduce("&", 
+                                        list(!(pop_data2$RACE %in% c("All", "Two or more races")),
+                                        pop_data2$Hispanic == "TRUE",
+                                        !(pop_data2$Age_desc %in% not_age),
+                                        pop_data2$include_innerracial == "TRUE"#,
+                                        # pop_data2$Sex == "All"
+                                        )
+                                   ),]
+
+total_pop <- total_pop_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc) %>%
+  summarise(
+    Total_pop = sum(Count, na.rm = T)
+  )
+
+by_race_tot <- by_race_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc, RACE) %>%
+  summarise(
+    Total_subset = sum(Count, na.rm = T)
+  )
+
+hisp_tot <- hisp_only_by_race_age_range %>% group_by(STNAME, CTYNAME, YEAR_desc) %>%
+  summarise(
+    RACE = "Hispanic",
+    Total_subset = sum(Count, na.rm = T)
+  )
+
+by_race_tot2 <- rbind(by_race_tot, hisp_tot)
+
+pop_by_county <- left_join(total_pop, by_race_tot2)
+
+
+pop_by_county$Race_frac <- pop_by_county$Total_subset/pop_by_county$Total_pop
+
+## Incorperate household data
+melt_hd <- household_data %>% reshape2::melt(
+  id.vars = c("puma_estimate", "st", "county", "hole", "piece", "group", "county_fips", "state_abbv", "state_fips", "fips_class", "order", "lat", "long"), variable.name = "Metric"
+)
+
+ho_shares <- melt_hd[melt_hd$Metric %in% c("hisp_ho_share", "other_ho_share", "black_ho_share", "white_ho_share", "asian_ho_share"),] 
+
+census_ho_data <- left_join(household_data, pop_by_county, by = c(st = "STNAME", county = "CTYNAME"))
+
+reduced_columns <- unique(census_ho_data[c("st", "county", "black_ho_share", 
+                 "white_ho_share", "asian_ho_share", 
+                 "hisp_ho_share", "other_ho_share", "Race_frac", "RACE")])
+
+reduced_columns$black_frac_diff <- reduced_columns$Race_frac - reduced_columns$black_ho_share
+reduced_columns$white_frac_diff <- reduced_columns$Race_frac - reduced_columns$white_ho_share
+reduced_columns$asian_frac_diff <- reduced_columns$Race_frac - reduced_columns$asian_ho_share
+reduced_columns$hisp_frac_diff <- reduced_columns$Race_frac - reduced_columns$hisp_ho_share
+reduced_columns$other_frac_diff <- reduced_columns$Race_frac - reduced_columns$other_ho_share
+
+```
+
+# Processing area percents
+```{r}
+
+select_pop_data <- pop_data2[pop_data2$RACE != "All",]
+not_age <- c(
+  "Total", "Age 0 to 4 years", "Age 5 to 9 years", "Age 10 to 14 years", "Age 15 to 19 years"
+)
+select_pop_data <- select_pop_data[!(select_pop_data$Age_desc %in% not_age),]
+
+group_cols <- colnames(select_pop_data)[!(colnames(select_pop_data) %in% c("Sex", "Count", "Age_desc"))]
+hisp_specific <- select_pop_data[select_pop_data$Hispanic == "TRUE",] %>% 
+  group_by_at(group_cols) %>% 
+  summarise(
+    Count_sum = sum(Count)
+  )
+
+select_pop_data <- select_pop_data[select_pop_data$Hispanic == "All",]
+
+select_pop_data_inc_all <- select_pop_data[select_pop_data$include_innerracial == "TRUE",]
+# select_pop_data_alone <- select_pop_data[select_pop_data$include_innerracial == "FALSE",]
+
+# group_cols <- colnames(select_pop_data_alone)[!(colnames(select_pop_data_alone) %in% c("Sex", "Count"))]
+
+select_pop_data_inc_all <- select_pop_data_inc_all %>% dplyr::group_by_at(group_cols) %>% summarise(
+  Count_sum = sum(Count)
+)
+
+# select_pop_data_alone <- select_pop_data_alone %>% dplyr::group_by_at(group_cols) %>% summarise(
+#   Count_sum = sum(Count)
+# )
+
+```
+
+
+```{r}
+## Change names so they work
+change_counties <- select_pop_data_inc_all[which(!(select_pop_data_inc_all$CTYNAME  %in% counties$county_name)),]
+
+
+unique(pop_data1$CTYNAME[which(!(pop_data1$CTYNAME  %in% counties$county_name))])
+
+unique(change_counties$CTYNAME)
+#Petersburg Borough == "Petersburg Census Area"
+#  LaSalle Parish, Louisiana == La Salle Parish Louisiana
+# "Do\xf1a Ana County" == Dona Ana County
+#select_pop_data_inc_all[select_pop_data_inc_all$CTYNAME == "Petersburg Borough",]
+
+select_pop_data_inc_all$CTYNAME[select_pop_data_inc_all$CTYNAME == "Petersburg Borough"] <- "Petersburg Census Area"
+select_pop_data_inc_all$CTYNAME[select_pop_data_inc_all$CTYNAME == "Do\xf1a Ana County"] <- "Dona Ana County"
+select_pop_data_inc_all$CTYNAME[select_pop_data_inc_all$CTYNAME == "LaSalle Parish"] <- "La Salle Parish"
+
+
+pop_data1$CTYNAME[pop_data1$CTYNAME == "Petersburg Borough"] <- "Petersburg Census Area"
+pop_data1$CTYNAME[pop_data1$CTYNAME == "Do\xf1a Ana County"] <- "Dona Ana County"
+pop_data1$CTYNAME[pop_data1$CTYNAME == "LaSalle Parish"] <- "La Salle Parish"
+
+```
+
+```{r}
+
+# write.csv(select_pop_data_alone, "Updated_ethnicity_alone_data.csv", row.names = F)
+write.csv(select_pop_data_inc_all, "Updated_ethnicity_all_data.csv", row.names = F)
+write.csv(pop_data1, "Updated_migration_data.csv", row.names = F)
+
+```
+
+
+```{r}
+
+## By year estimates of ethnicity population
+
+all_join <- left_join(select_pop_data_inc_all, counties, by = c("CTYNAME" = "county_name", "STNAME" = "state_name")) 
+mig_join <- left_join(pop_data1, counties, by = c("CTYNAME" = "county_name", "STNAME" = "state_name")) 
+
+
+```
+
+```{r}
+
+map_mig <- mig_join %>% group_by(Metric, Year) %>% nest()
+
+panel_func <- function(row){
+  
+  print(row)
+  type <- map_mig[row, "Year"]
+  title <- map_mig[row, "Metric"]
+  title <- paste0(title, paste0(" (", type, ")"))
+  df <- map_mig$data[[row]]
+  
+  plot <- df %>% ggplot(aes(long, lat, group = group, 
+             fill = Count, text = paste0(CTYNAME, "\n", STNAME))) +
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "", title = title) +
+  scale_fill_distiller(palette = 'Spectral') #+
+  #theme_urbn_map()
+
+  #plotly_plot <- plot %>% ggplotly()
+
+  # plotly_plot %>%
+  #   config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+  # 
+  plot
+}
+
+```
+
+
+```{r, eval = FALSE}
+
+trell_data <- map_mig %>% ungroup %>% mutate(
+  panel = map_plot(1:nrow(map_mig), panel_func)
+)
+
+saveRDS(trell_data, file = "trelliscope_maps_influx.RDS")
+
+```
+
+
+```{r, eval = FALSE}
+
+trell_data <- readRDS("trelliscope_maps_influx.RDS")
+
+trell_data %>% trelliscope("Map_influx_data", path = "./Maps")
+
+```
+
+
+## Correlations
+```{r}
+
+## Rates
+rates <- c("RBIRTH", "RDEATH", "RNATURALINC", 
+           "RINTERNATIONALMIG", "RDOMESTICMIG", "RNETMIG")
+
+cor_df <- mig_join[mig_join$Metric %in% rates,]
+cor_df <- dcast(cor_df, CTYNAME + Year ~ Metric, value.var = "Count", fun.aggregate = sum)
+cor_df <- reshape2::melt(cor(cor_df[-1], use = "complete.obs", method = "spearman"))
+
+cor_df$value[cor_df$value == 1] <- NA
+
+order_cols <- rates
+cor_df$Var1 <- factor(as.character(cor_df$Var1), levels = order_cols)
+cor_df$Var2 <- factor(as.character(cor_df$Var2), levels = order_cols)
+
+vline <- function(x = 0, y0 = 0, y1 = 6, color = "black") {
+  list(
+    type = "line",
+    x0 = x*1/6,
+    x1 = x*1/6,
+    xref = "paper",
+    y0 = y0 - .5,
+    y1 = y1 - .5,
+    line = list(color = color)
+  )
+}
+
+hline <- function(y = 0, x0 = 0, x1 =6, color = "black") {
+  list(
+    type = "line",
+    x0 = x0*1/6,
+    x1 = x1*1/6,
+    xref = "paper",
+    y0 = y - .5,
+    y1 = y - .5,
+    line = list(color = color)
+  )
+}
+
+plot_ly(
+  cor_df,
+  x = ~Var1,
+  y = ~Var2,
+  z = ~value,
+  type = "heatmap",
+  colors = "RdYlGn",
+  zauto = F, zmin = -1, zmax = 1
+) %>% layout(
+  shapes = list(vline(0), vline(3),
+                hline(0), hline(3)
+                ),
+  plot_bgcolor='rgb(240, 240, 240)',
+  xaxis = list(showgrid = FALSE, title = ""),
+  yaxis =  list(showgrid = FALSE, title  = ""))
+
+```
+
+
+## Census populations
+
+```{r}
+
+pop_est <- mig_join[mig_join$Metric == "POPESTIMATE",]
+# select_pop_data_alone$Year <- as.numeric(str_extract(select_pop_data_alone$YEAR_desc, "20[0-9]{2}"))
+select_pop_data_inc_all$Year <- as.numeric(str_extract(select_pop_data_inc_all$YEAR_desc, "20[0-9]{2}"))
+
+# HA <- left_join(select_pop_data_alone, pop_est)
+HI <- left_join(select_pop_data_inc_all, pop_est)
+
+# HA$Percentage <- HA$Count_sum/HA$Count
+HI$Percentage <- HI$Count_sum/HI$Count
+
+```
+```{r}
+
+# HA_nest <- HA %>% group_by(RACE, Year) %>% nest()
+HI_nest <- HI %>% group_by(RACE, Year) %>% nest()
+
+panel_func_HI <- function(row){
+  
+  print(row)
+  type <- HI_nest[row, "Year"]
+  title <- HI_nest[row, "RACE"]
+  title <- paste0(title, paste0(" include (", type, ")"))
+  df <- HI_nest$data[[row]]
+  
+  plot <- df %>% ggplot(aes(long, lat, group = group, 
+             fill = Percentage, text = paste0(CTYNAME, "\n", STNAME))) +
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "", title = title) +
+  scale_fill_distiller(palette = 'Spectral') #+
+  #theme_urbn_map()
+
+  #plotly_plot <- plot %>% ggplotly()
+
+  # plotly_plot %>%
+  #   config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+  # 
+  plot
+}
+
+```
+
+```{r, eval = F}
+trell_data_HA <- HA_nest %>% ungroup %>% mutate(
+  panel = map_plot(1:nrow(HA_nest), panel_func_HA)
+)
+
+saveRDS(trell_data_HA, file = "trelliscope_maps_HA.RDS")
+
+trell_data_HI <- HI_nest %>% ungroup %>% mutate(
+  panel = map_plot(1:nrow(HI_nest), panel_func_HI)
+)
+
+saveRDS(trell_data_HI, file = "trelliscope_maps_HI.RDS")
+
+```
+
+```{r, eval = F}
+
+trell_data_HA %>% trelliscope("Map_HA_data", group = "ethnicity", path = "./Maps")
+trell_data_HI %>% trelliscope("Map_HI_data", group = "ethnicity", path = "./Maps")
+
+```
+
+
+```{r}
+
+## black, white, asian, hispanic, other
+
+## Go back and do hispanic for other
+
+## Average by year all races
+joiner_for_household_data <- HI %>% group_by(STNAME, CTYNAME, RACE) %>%
+  summarise(
+    ave_pop = mean(Count_sum),
+    med_pop = median(Count_sum)
+  )
+
+## Average by year, hispanic
+hisp_data <- hisp_specific %>% group_by(STNAME, CTYNAME) %>%
+  summarise(
+    RACE = "Hispanic",
+    ave_pop = mean(Count_sum),
+    med_pop = median(Count_sum)
+  )
+
+joiner_for_household_data_all <- rbind(joiner_for_household_data, hisp_data)
+
+nonwhite <- joiner_for_household_data_all %>% group_by(STNAME, CTYNAME) %>% summarise(
+  RACE1 = "nonwhite",
+  ave_pop1 = sum(ave_pop[RACE != "White"]),
+  med_pop1 = sum(med_pop[RACE != "White"])
+)
+
+colnames(nonwhite) <- colnames(joiner_for_household_data_all)
+
+joiner_for_household_data <- rbind(joiner_for_household_data_all, nonwhite)
+
+
+joiner_for_household_data_other <- joiner_for_household_data
+
+joiner_for_household_data_other$RACE[
+  joiner_for_household_data_other$RACE %in% c(
+    "Native Hawaiian or Other Pacific Islander",
+    "American Indian or Alaska Native" )
+  ] <- "Other"
+
+joiner_for_household_data_other <- joiner_for_household_data_other %>% 
+  group_by(STNAME, CTYNAME, RACE) %>%
+  summarise(
+    mean_pop = sum(ave_pop)
+  )
+
+```
+
+### Check out interdependencies 
+
+### Missingness
+
+
+```{r}
+
+res_missing <- apply(is.na(household_data[1:ncol(household_data)]),2, sum)
+
+
+res_missing[res_missing != 0]
+
+household_data[is.na(household_data$asian_ho_share), "total_homeowners"]
+
+unique(household_data[is.na(household_data$predicted_foreclosure_rate), c("total_homeowners")])
+
+household_data[household_data$st %in% c("Hawaii", "Illinois", "Louisiana", "New Mexico"), ]
+
+```
+
+
+
+### Correlations
+
+
+```{r}
+
+per_cols <- colnames(household_data)[str_detect(colnames(household_data), "share|perc|rate|ratio")]
+
+cor_df <- household_data[per_cols]
+
+# cor(cor_df, use = "everything")
+
+# cor_df <- reshape2::melt(cor(cor_df, use = "complete.obs", method = "kendall"))
+cor_df <- reshape2::melt(cor(cor_df, use = "complete.obs", method = "spearman"))
+
+cor_df$value[cor_df$value == 1] <- NA
+
+order_cols <- c(
+  per_cols[2:6], ## Ethnicity
+  per_cols[c(15:16)], # Etnicity AMI
+  per_cols[c(7, 13:14)], # Mortgage, AMI
+  per_cols[c(11:12)], # AMI
+  per_cols[c(8:10)], # cost burden, median income to cost ratio
+  per_cols[1]
+)
+
+
+cor_df$Var1 <- factor(as.character(cor_df$Var1), levels = order_cols)
+cor_df$Var2 <- factor(as.character(cor_df$Var2), levels = order_cols)
+# combos <- map2_chr(as.character(cor_df$Var1), 
+#          as.character(cor_df$Var2), 
+#          function(x, y) toString(c(x,y)[order(c(x,y))]))
+
+# cor_df$value[duplicated(combos)] <- NA
+
+
+vline <- function(x = 0, y0 = 0, y1 = 16, color = "black") {
+  list(
+    type = "line",
+    x0 = x*1/16,
+    x1 = x*1/16,
+    xref = "paper",
+    y0 = y0 - .5,
+    y1 = y1 - .5,
+    line = list(color = color)
+  )
+}
+
+hline <- function(y = 0, x0 = 0, x1 =16, color = "black") {
+  list(
+    type = "line",
+    x0 = x0*1/16,
+    x1 = x1*1/16,
+    xref = "paper",
+    y0 = y - .5,
+    y1 = y - .5,
+    line = list(color = color)
+  )
+}
+
+plot_ly(
+  cor_df,
+  x = ~Var1,
+  y = ~Var2,
+  z = ~value,
+  type = "heatmap",
+  colors = "RdYlGn",
+  zauto = F, zmin = -1, zmax = 1
+) %>% layout(
+  shapes = list(vline(0), vline(5), vline(7), vline(10), vline(12), vline(15), vline(16),
+                hline(0), hline(5), hline(7), hline(10), hline(12), hline(15), hline(16)
+                ),
+  plot_bgcolor='rgb(240, 240, 240)',
+  xaxis = list(showgrid = FALSE, title = ""),
+  yaxis =  list(showgrid = FALSE, title  = ""))
+
+
+
+```
+
+## Plotting
+
+# Trelliscope maps
+# Linked plots in rbokeh might be cool? selection by boxplot cut?
+```{r}
+
+household_data2 <- household_data %>% reshape2::melt(
+  id.vars = c("puma_estimate", "st", "county", "hole", "piece", "group", "county_fips", "state_abbv", "state_fips", "fips_class", "order", "lat", "long"), variable.name = "Metric"
+) %>% group_by(Metric) %>% nest()
+
+household_data2$Group_Metric <- c(
+  "HO income < area median income",
+  "HO income < (1.5 * area median income)",
+  "HO w/ mortgage income < area median income",
+  "HO w/ mortgage income < (1.5 * area median income)",
+  "HO (Homeowners)",
+  "Mortgages",
+  "White HO between 100-150% area median income",
+  "Non-white HO between 100-150% area median income",
+  "Predicted foreclosures",
+  "Black HO",
+  "White HO",
+  "Asian HO",
+  "Hispanic HO",
+  "Other HO",
+  "Mortgages",
+  "HO Cost per month",
+  "HO Cost per month",
+  "HO paying >30% income",
+  "HO paying >30% income",
+  "HO paying >50% income",
+  "HO income < area median income",
+  "HO income < (1.5 * area median income)",
+  "HO w/ mortgage income < area median income",
+  "HO w/ mortgage income < (1.5 * area median income)",
+  "White HO between 100-150% area median income",
+  "Non-white HO between 100-150% area median income",
+  "Predicted foreclosures",
+  "Black HO",
+  "White HO",
+  "Asian HO",
+  "Hispanic HO",
+  "Other HO",
+  "HO paying >50% income",
+  "Monthly income",
+  "Yearly income"
+)
+
+household_data2$perc_count <- c(
+  "count", "count", "count", "count", "count", "count", "count",
+  "count", "percentage", "percentage", "percentage", "percentage", "percentage", "percentage",
+  "percentage", "count", "percentage", "count", "percentage", "percentage", "percentage",
+  "percentage", "percentage", "percentage", "percentage", "percentage", "count", "count",
+  "count", "count", "count", "count", "count", "count", "count"
+)
+
+panel_func <- function(row){
+  
+  print(row)
+  type <- household_data2[row, "perc_count"]
+  title <- household_data2[row, "Group_Metric"]
+  title <- paste0(title, paste0(" (", type, ")"))
+  df <- household_data2$data[[row]]
+  
+  plot <- df %>% ggplot(aes(long, lat, group = group, 
+             fill = value, text = paste0(county, "\n", st))) +
+  geom_polygon(color = NA) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "", title = title) +
+  scale_fill_distiller(palette = 'Spectral') +
+  theme_urbn_map()
+
+  plotly_plot <- plot %>% ggplotly()
+
+  plotly_plot %>%
+    config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+  
+}
+
+```
+
+## Foreclosure log
+```{r}
+
+boxplot(log(household_data$predicted_foreclosure_rate))
+
+df <- household_data2$data[household_data2$Metric == "predicted_foreclosure_rate"][[1]]
+
+plot <- df %>% ggplot(aes(long, lat, group = group, 
+           fill = log(value), text = paste0(county, "\n", st))) +
+geom_polygon(color = NA) +
+coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+labs(fill = "") +
+scale_fill_distiller(palette = 'Spectral') +
+theme_urbn_map()
+
+plotly_plot <- plot %>% ggplotly()
+
+plotly_plot %>%
+  config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+
+```
+<!-- ## share_severe_burden log -->
+```{r}
+
+boxplot(household_data$share_severe_burden)
+boxplot(log(household_data$share_severe_burden))
+
+df <- household_data2$data[household_data2$Metric == "share_severe_burden"][[1]]
+
+plot <- df %>% ggplot(aes(long, lat, group = group, 
+           fill = log(value), text = paste0(county, "\n", st))) +
+geom_polygon(color = NA) +
+coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+labs(fill = "") +
+scale_fill_distiller(palette = 'Spectral') +
+theme_urbn_map()
+
+plotly_plot <- plot %>% ggplotly()
+
+plotly_plot %>%
+  config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+
+```
+
+## cost_home_ratio log; sans alpine county
+```{r}
+
+boxplot(household_data$med_owncost_income_ratio)
+boxplot(log(household_data$med_owncost_income_ratio))
+
+df <- household_data2$data[household_data2$Metric == "med_owncost_income_ratio"][[1]]
+df <- df[df$county != "Alpine County",]
+
+plot <- df %>% ggplot(aes(long, lat, group = group, 
+           fill = log(value), text = paste0(county, "\n", st))) +
+geom_polygon(color = NA) +
+coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+labs(fill = "") +
+scale_fill_distiller(palette = 'Spectral') +
+theme_urbn_map()
+
+plotly_plot <- plot %>% ggplotly()
+
+plotly_plot %>%
+  config(modeBarButtonsToRemove = c("lasso2d", "select2d", "autoScale2d"))
+
+```
+
+
+```{r, eval = F}
+
+trell_data <- household_data2 %>% ungroup %>% mutate(
+  panel = map_plot(1:nrow(household_data2), panel_func)
+)
+
+saveRDS(trell_data, file = "trelliscope_maps.RDS")
+
+```
+
+```{r, eval = F}
+
+trell <- readRDS("trelliscope_maps.RDS")
+
+trell %>% trelliscope("Map_household_data", path = "./Maps")
+
+
+```
+
+
+### Consideration for population
+
+```{r}
+
+melt_hd <- household_data %>% reshape2::melt(
+  id.vars = c("puma_estimate", "st", "county", "hole", "piece", "group", "county_fips", "state_abbv", "state_fips", "fips_class", "order", "lat", "long"), variable.name = "Metric"
+)
+
+ho_shares <- melt_hd[melt_hd$Metric %in% c("hisp_ho_share", "other_ho_share", "black_ho_share", "white_ho_share", "asian_ho_share"),] 
+
+## Appears to include 2+ races
+all_onehundered <- unique(ho_shares[c("st", "county", "Metric", "value")]) %>%
+  group_by(st, county) %>% summarise(total = sum(value, na.rm = T),
+                                     hispanic_ho = value[Metric == "hisp_ho_share"],
+                                     other_ho = value[Metric == "other_ho_share"],
+                                     black_ho = value[Metric == "black_ho_share"],
+                                     white_ho = value[Metric == "white_ho_share"],
+                                     asian_ho = value[Metric == "asian_ho_share"]
+                                     )
+
+
+ethnicity_cols <- c(X100to150_ami_non_white = "nonwhite", X100to150_ami_white = "White", 
+                   hisp_ho = "Hispanic",  other_ho = "Other", 
+                   black_ho = "Black", white_ho = "White", asian_ho = "Asian")
+
+### Hispanic as race 
+
+df <- melt_hd[melt_hd$Metric %in% names(ethnicity_cols),]
+df$RACE <- map_chr(as.character(df$Metric), function(x) ethnicity_cols[[x]])
+
+
+join_data <- left_join(df, joiner_for_household_data_other, 
+                 by = c("st" = "STNAME", county = "CTYNAME", RACE = "RACE"))
+
+join_data$per_ave_capita <- join_data$value/join_data$mean_pop
+
+any(join_data$value > join_data$mean_pop)
+
+over_1 <- unique(join_data[which(join_data$value > join_data$mean_pop), c("st", "county", "value", "RACE", "mean_pop", "per_ave_capita")])
+
+
+boxplot(log(join_data$per_ave_capita))
+
+```
+ 
+ 
+ 
+ 
+
+```{r}
+
+## Master spreadsheet
+join_data <- join_data[!(join_data$Metric %in% c("X100to150_ami_non_white", "X100to150_ami_white")),]
+df_county <- unique(join_data[c("st", "county", "county_fips", "RACE", "mean_pop", "value", "per_ave_capita")])
+df_county$county <- str_remove(df_county$county, " (County|Census Area|Municipality|Borough)")
+
+colnames(df_county) <- c("State", "County", "county_fips", "RACE", "ave_pop", "Homeownership_count_est", "HO_pop_perc")
+
+write.csv(df_county, "Race_pop_homeownership_per_county.csv")
+
+write.csv(melt_hd, "homeownership_wlocation_info_merger.csv")
+
+melt2 <- unique(melt_hd[c("st", "county", "county_fips", "state_abbv", "Metric", "value")])
+
+write.csv(melt2, "homeownership_info_merger.csv")
+```
+
+
+```{r}
+
+
+sum(df_county$HO_pop_perc > 1, na.rm = T)
+length(df_county$HO_pop_perc)
+
+```
+
+
+
+

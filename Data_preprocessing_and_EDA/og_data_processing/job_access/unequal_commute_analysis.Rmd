@@ -1,0 +1,236 @@
+---
+title: "Unequal Commute Data Analysis"
+author: "Anastasiya Prymolenna"
+date: "12/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(geojsonR)
+library(geojsonio)
+library(broom)
+library(ggplot2)
+library(geosphere)
+library(maps)
+#library(OpenStreetMap)
+library(dplyr)
+library(viridis)
+library(reshape2)
+library(leaflet)
+```
+
+
+```{r David}
+
+# covid <- "../og_data/job_access/job_loss_by_tract.geojson"
+# covid_data <-  geojson_read(covid,  what = "sp")
+```
+
+Notes:
+
+Java required for OpenStreetMap, which doesnt require Google API to use maps for spatial plotting, unlike ggmap.
+
+Questions:
+levels the data is observed at
+years the data is collected
+normalization explained. What is it normalized to
+spacial domain
+
+External Data Sets ideas:
+
+1. Child care accessibility
+2. Lisa's education data set
+3. BLS career opportunities within the GEOIDs 
+
+
+## Data input
+
+The data behind the Urban Institute's Unequal Commute feature, published on October 6, 2020.
+
+Takeaways from the report:
+ 
+ 1. Access to jobs varies by neighborhood
+ 2. A lack of public transit access hinders transit dependent workers’ ability to commute
+ 3. People of color have less access to safe and affordable transportation
+ 4. Better data are needed to help increase transportation equity and access to opportunity
+
+
+
+It is restricted to only the access to job opportunity in the Lansing, Michigan; Seattle, Washington;
+Baltimore, Maryland; and Nashville, Tennessee MSAs.
+Each census block represented by a GEOID is a subdivision of a census tract that generally contains between 600 and 3,000 people.
+
+Job access is calculcated based on a gravity model of the combined auto and transit access for low wage workers in a block group.
+This is defined by the number of jobs in an area multiplied by the impidence function of travel time divided by the sum of
+the total population of commuters and the impidence function of travel time for all of them. 
+
+```{r input files}
+file_js_path <- "../../og_data/job_access/job_access_gap.json"
+job_access_csv <- "../../og_data/job_access/job_access_gap.csv"
+job_access_gap_dict <- "../../og_data/job_access/job_access_gap_dict.csv"
+job_access_equity <- "../../og_data/job_access/job_access_gap_equity.csv"
+job_access_gap_equity_dict <- "../../og_data/job_access/job_access_gap_equity_dict.csv"
+
+
+file_js = FROM_GeoJson(url_file_string = file_js_path)
+job_access <- read.csv(job_access_csv)
+job_access_gap <- read.csv(job_access_equity)
+definitions <- read.csv(job_access_gap_dict)
+definitions
+```
+
+
+Leading Questions:
+How is the overall job access related to the block group workers commute from?
+Is overall job access more correlated with day time versus night time workers?
+How has COVID impacted the block regions and job access in these four metropolitan areas.
+Do people of color have equal access to job opportunities?
+
+```{r centroid function}
+cntrd <- function(x) {
+  as.vector(centroid(as.matrix(x[,c("long", "lat")])))
+}
+```
+
+```{r view data}
+#Load data as a spacial object
+jadf <- geojson_read(file_js_path,  what = "sp")
+
+#subset specific region
+jadf_WA <- jadf[ jadf@data$MSA == "Seattle" , ]
+jadf_WA_formatted <- tidy(jadf_WA)
+
+jadf_MI <- jadf[ jadf@data$MSA == "Lansing" , ]
+
+jadf_MD <- jadf[ jadf@data$MSA == "Baltimore" , ]
+
+jadf_TN <- jadf[ jadf@data$MSA == "Nashville" , ]
+
+
+#get map info
+center_input <- cntrd(jadf_WA_formatted)
+#map <- openmap(c(center_input[1]+0.7, center_input[2]-0.7), c(center_input[1]-0.7, center_input[2]+0.7),
+#               type="osm", zoom=FALSE)
+
+# Plot it
+ggplot() +
+  geom_polygon(data = jadf_WA_formatted, aes( x = long, y = lat, group = group)) +
+  theme_void() +
+  coord_map()
+
+pal <- colorNumeric("viridis", NULL)
+
+```
+
+```{r, plot spacial data}
+leaflet(jadf_WA) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(OverallJobAccess),
+    label = ~paste0(GEOID, ": ", formatC(OverallJobAccess, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~OverallJobAccess, opacity = 1.0)
+
+leaflet(jadf_MI) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(OverallJobAccess),
+    label = ~paste0(GEOID, ": ", formatC(OverallJobAccess, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~OverallJobAccess, opacity = 1.0)
+
+leaflet(jadf_MD) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(OverallJobAccess),
+    label = ~paste0(GEOID, ": ", formatC(OverallJobAccess, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~OverallJobAccess, opacity = 1.0)
+
+leaflet(jadf_TN) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(OverallJobAccess),
+    label = ~paste0(GEOID, ": ", formatC(OverallJobAccess, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~OverallJobAccess, opacity = 1.0)
+
+```
+
+
+Time of Day Comparison
+
+```{r}
+leaflet(jadf_MD) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(Access30Transit),
+    label = ~paste0(GEOID, ": ", formatC(Access30Transit, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~Access30Transit, opacity = 1.0)
+
+leaflet(jadf_MD) %>%
+  addTiles() %>%
+  addPolygons(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+    fillColor = ~pal(Access30Transit_ts),
+    label = ~paste0(GEOID, ": ", formatC(Access30Transit_ts, big.mark = ","))) %>%
+  addLegend(pal = pal, values = ~Access30Transit_ts, opacity = 1.0)
+```
+
+
+## Explore Data
+
+
+```{r}
+job_access_groups <- job_access %>% group_by(MSA)
+
+ggplot()+
+  geom_boxplot(data=job_access_groups, aes(x= MSA, y=OverallJobAccess)) +
+  ggtitle("Normalized measure of overall access to jobs for low wage job seekers")
+
+ggplot()+
+  geom_point(data=job_access_groups, aes( x=OverallJobAccess,y= spatialmismatch, colour=Access30Transit)) +
+  facet_wrap(~MSA)+
+  ggtitle("acessibility of jobs compared to spacial mismatch between job seekers and jobs")
+
+ggplot()+
+  geom_point(data=job_access_groups, aes( x=lowwagelaborforce,y= spatialmismatch, colour =OverallJobAccess)) +
+  facet_wrap(~MSA)+
+  ggtitle("acessibility of jobs per block group from LODES data")
+
+ggplot()+
+  geom_point(data=job_access_groups, aes( x=Access30Transit,y= spatialmismatch,  colour =OverallJobAccess)) +
+  facet_wrap(~MSA)+
+  ggtitle("time to get to work on spacial missmatch")
+
+ggplot(job_access, aes(lowwagelaborforce, OverallJobAccess, labels=MSA, colour = MSA)) + scale_fill_viridis() +
+  geom_point()+
+  ggtitle("Measure of how long different groups of the labor force take to get to work")
+
+
+ggplot()+
+  geom_boxplot(data=job_access_groups, aes(x= MSA, y=Access30Transit))
+```
+
+
+```{r}
+job_access_gap_melt <- melt(job_access_gap)
+job_melt_subset <- subset(job_access_gap_melt, job_access_gap_melt$variable!="total_pop")
+
+ggplot(job_melt_subset, aes(fill=variable, y=value, x=type))+
+  geom_bar(position="dodge", stat="identity")+
+  facet_wrap(~cbsa_name)+
+  ggtitle("Demographic information of each city")
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
