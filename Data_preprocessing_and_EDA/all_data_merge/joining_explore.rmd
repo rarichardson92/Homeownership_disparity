@@ -1,0 +1,498 @@
+---
+title: "Untitled"
+output: html_document
+date: '2022-05-06'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(urbnmapr)
+library(urbnthemes)
+library(plotly)
+library(trelliscopejs)
+library(reshape2)
+```
+
+
+```{r}
+
+#Additional data
+
+# https://www.eia.gov/electricity/data/eia861/ ## electricity usage
+# https://www.fcc.gov/health/maps/developers ## health and broadband info
+# https://infrastructurereportcard.org/ ## General infrastructure
+#   
+#   
+# # Social Media Use in American Counties: Geography and Determinants
+# US Census Bureau, DEC 2010, Table DP-01, US Census Bureau, Decennial Census 2010, Summary File 1
+# US Census Bureau, ACS 2012, Table DP-02,US Census Bureau, American Community Survey 2012, 5-year estimates, Table DP-02
+# US Census Bureau, ACS 2012, Table DP-03 CENACS12_DP03 US Census Bureau, American Community Survey 2012, 5-year estimates, Table DP-03
+# US Census Bureau, ACS 2012, Table DP-04 CENACS12_DP04 US Census Bureau, American Community Survey 2012, 5-year estimates, Table DP-04
+# US Census Bureau, ACS 2012, Table DP-05 CENACS12_DP05 US Census Bureau, American Community Survey 2012, 5-year estimates, Table DP-05
+# Federal Communications Commission,
+# Form 477 FCC_477 Federal Communications Commission, Form 477, Local Telephone Competition and Broadband
+# Deployment
+# Bureau of Economic Analysis, CA1-3 BEA_CA1-3 US Dept of Commerce, Bureau of Economic Analysis, CA1-3, Personal Income, Per Capita Income
+# Bureau of Economic Analysis, CA04 BEA_CA04 US Dept of Commerce, Bureau of Economic Analysis, CA04, Personal Income Summary
+# US Census Bureau, Economic Census 2007 CENECON07 US Census Bureau, Economic Census 2007
+# US Department of Commerce, NTIA, State
+# Broadband Initiative, Analyze Table NTIA_SBI_AnalyzeUS Dept of Commerce, National Telecommunications and Information Administration, State
+# Broadband Initiative (CSV format December 31, 2012).
+# National Center for Education Statistics,
+# F-33 NCES_F33 US Census Bureau, Governments Division, Local Education Agency (School District) Finance Survey
+# (F-33), National Center for Education Statistics, Common Core of Data
+# Esri Business Analyst Data BA Esri Business Analyst Data, GfK MRI DoubleBase Survey 2012
+# Rupasingha and Goetz, 2008 — Pennsylvania State University’s Northeast Regional Center for Rural Development
+
+```
+
+
+```{r}
+
+dir <- "./"
+
+job_prop <- unique(read.csv(paste0(dir, "/Job_Proportions.csv")))
+commute_data <- unique(read.csv(paste0(dir, "/commute_data_proportions2015to2019.csv")))
+response_data <- unique(read.csv(paste0(dir, "/Perc_diff_HO_RACE_by_County.csv")))
+migration_data <- unique(read.csv(paste0(dir, "/Updated_migration_data.csv")))
+hsgrad <- unique(read.csv(paste0(dir, "/hsgrad_cleaned.csv")))
+perdiem <- unique(read.csv(paste0(dir, "/perDiem_by_county_new.csv")))
+ho_data <- unique(read.csv(paste0(dir, "/homeownership_info_merger.csv")))
+regional_data <- unique(read.csv(paste0(dir, "/regional_designation.csv")))
+pop_density <- unique(read.csv(paste0("Average_Household_Size_and_Population_Density_-_County.csv")))
+
+```
+
+
+```{r}
+head(job_prop)
+head(commute_data)
+head(response_data)
+head(migration_data)
+head(ho_data)
+head(regional_data)
+head(pop_density)
+```
+
+## Join job
+
+```{r}
+
+col_race <- c("White", "Black", "Native", "Asian", "Pacific.Islander", 
+           "Multiracial", "Not.Hispanic", "Hispanic")
+
+job_race <- melt(job_prop[c("FIPS", col_race)], id.vars = "FIPS", 
+                 variable.name = "RACE", value.name = "Race_employment")
+
+job_join <- left_join(job_prop[!(colnames(job_prop) %in% col_race)], job_race)
+
+jc_response <- inner_join(response_data, job_join, by = c(county_fips = "FIPS",
+                                                          RACE = "RACE"))
+
+jc_response <- left_join(jc_response,
+  job_prop[c("FIPS", "White", "Black", "Native", 
+                          "Asian", "Pacific.Islander", "Multiracial",
+                          "Not.Hispanic", "Hispanic")], by = c(county_fips = "FIPS"))
+```
+
+## Join commute data
+
+```{r}
+
+commute_data$county_fips <- as.numeric(gsub("0500000US", "", commute_data$id))
+
+## Puerto Rico not in jc_response data
+commute_data[which(!(commute_data$county_fips %in% jc_response$county_fips)),]
+
+jc_res_com <- inner_join(jc_response, commute_data)
+
+
+```
+
+## join hs graduation data
+
+```{r}
+
+## All accounted for
+jc_res_com[which(!(jc_res_com$county_fips %in% hsgrad$fips)),]
+jc_res_com_hs <- left_join(jc_res_com, hsgrad[c("fips", "rate_2010")], by = c(county_fips = "fips"))
+
+```
+
+## Join per diem data
+```{r}
+
+## remove ( City and)* for consistency
+jc_res_com_hs$county <- gsub("( County| Municipality| Parish| Borough| city)", "", jc_res_com_hs$county)
+jc_res_com_hs[which(!(jc_res_com_hs$county %in% perdiem$County)),]
+
+jc_res_com_hs_di <- left_join(jc_res_com_hs, perdiem, by = c(st = "State", county = "County"))
+
+```
+## Join migration data
+
+```{r}
+
+mig_dat <- migration_data %>% group_by(STATE, COUNTY, STNAME, CTYNAME, Metric) %>%
+  summarise(Value = mean(Count, na.rm = T))
+
+mig_dat2 <- mig_dat[mig_dat$Metric %in% c("GQESTIMATES", "RBIRTH", 
+                                   "RDEATH", "RNATURALINC", 
+                                   "RINTERNATIONALMIG", "RDOMESTICMIG",
+                                   "RNETMIG" ),]
+
+mig_dat2$FIPS <- mig_dat2$STATE*1000 + mig_dat2$COUNTY
+
+join_mig <- dcast(mig_dat2, FIPS ~ Metric, value.var = "Value")
+
+## All accounted for
+all(jc_res_com_hs_di$FIPS %in% join_mig$FIPS)
+
+jc_res_com_hs_di_mig <- left_join(jc_res_com_hs_di, join_mig, by = c(county_fips = "FIPS"))
+
+```
+
+## Join homeowner data (proportions)
+
+```{r}
+
+keep_rows <- ho_data$Metric %in% c(
+  "predicted_foreclosure_rate",
+  "med_owncost_income_ratio",
+  "med_owner_cost",
+  "share_cost_burden",
+  "share_severe_burden",
+  "perc_homeowners_less_100ami",
+  "perc_homeowners_less_150ami",
+  "perc_mortgage_less_100ami",
+  "perc_mortgage_less_150ami",
+  "perc_X100to150_ami_non_white",
+  "perc_X100to150_ami_white",
+  "yearly_income"
+)
+
+join_ho <- ho_data[keep_rows,] %>% dcast(county_fips ~ Metric, value.var = "value")
+
+jc_res_com_hs_di_mig_ho <- left_join(jc_res_com_hs_di_mig, join_ho)
+
+```
+
+## Join regional data
+```{r}
+
+all_reg <- left_join(jc_res_com_hs_di_mig_ho, 
+                    regional_data[2:4], by = c(state_abbv = "State.Code"))
+
+```
+
+
+## Join pop density data
+```{r}
+
+all_dat <- left_join(all_reg, 
+                    pop_density[c(3, 16)], by = c(county_fips = "GEOID"))
+all_dat$pop_density <- all_dat$B01001_calc_PopDensity
+all_dat$B01001_calc_PopDensity <- NULL
+```
+
+
+```{r}
+
+rm_cols <- c("X.x", "X.y", "id", "County", "State") ## remove duplicates of columns
+
+all_dat <- all_dat[!(colnames(all_dat) %in% rm_cols)]
+
+write.csv(all_dat, "final_model_df.csv")
+
+```
+
+
+```{r}
+
+cols <- c("Race_frac", "HO_share", "Perc_diff", 
+          "Perc_employ", "HO_over_Race")
+
+pairwise <- combn(cols, 2)
+
+res <- map(1:ncol(pairwise), function(n){
+  df <- all_dat[c("RACE", pairwise[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise[1,n]]], 
+                   y = df2[[pairwise[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise[1,n], y = pairwise[2,n], title = race)
+
+  })
+  
+})
+
+res_innerq <- map(1:ncol(pairwise), function(n){
+  df <- all_dat[c("RACE", pairwise[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "inner quartile",]
+    
+    plots[[length(plots)+1]] <- ggplot() + 
+    geom_point(aes(x = df2[[pairwise[1,n]]], 
+                   y = df2[[pairwise[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise[1,n], y = pairwise[2,n], title = race)
+
+  })
+  
+})
+
+
+res_upper <- map(1:ncol(pairwise), function(n){
+  df <- all_dat[c("RACE", pairwise[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "upper",]
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise[1,n]]], 
+                   y = df2[[pairwise[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise[1,n], y = pairwise[2,n], title = race)
+
+  })
+  
+})
+
+res_lower <- map(1:ncol(pairwise), function(n){
+  df <- all_dat[c("RACE", pairwise[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "lower",]
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise[1,n]]], 
+                   y = df2[[pairwise[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise[1,n], y = pairwise[2,n], title = race)
+
+  })
+  
+})
+
+```
+
+```{r}
+pairwise
+res[10]
+res_innerq[10]
+res_upper[10]
+res_lower[10]
+
+## Check out high trends in Hispanic populations
+
+## Ratio vs straight difference
+
+```
+
+
+```{r}
+
+cols_com <- c("Perc_diff", "HO_over_Race",
+          "Perc_employ", "Estimate_Total._Less.than.10.minutes",
+          "Estimate_Total._10.to.29.minutes", "Estimate_Total._30.to.59.minutes",
+          "Estimate_Total._60.minutes.or.more"
+          )
+
+# pairs(jc_res_com[cols_com])
+
+```
+
+```{r}
+
+
+pairwise_com <- combn(cols_com, 2)
+
+com_res <- map(1:ncol(pairwise_com), function(n){
+  df <- all_dat[c("RACE", pairwise_com[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise_com[1,n]]], 
+                   y = df2[[pairwise_com[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise_com[1,n], y = pairwise_com[2,n], title = race)
+
+  })
+  
+})
+
+com_res_innerq <- map(1:ncol(pairwise_com), function(n){
+  df <- all_dat[c("RACE", pairwise_com[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "inner quartile",]
+    
+    plots[[length(plots)+1]] <- ggplot() + 
+    geom_point(aes(x = df2[[pairwise_com[1,n]]], 
+                   y = df2[[pairwise_com[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise_com[1,n], y = pairwise_com[2,n], title = race)
+
+  })
+  
+})
+
+
+com_res_upper <- map(1:ncol(pairwise_com), function(n){
+  df <- all_dat[c("RACE", pairwise_com[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "upper",]
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise_com[1,n]]], 
+                   y = df2[[pairwise_com[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise_com[1,n], y = pairwise_com[2,n], title = race)
+
+  })
+  
+})
+
+com_res_lower <- map(1:ncol(pairwise_com), function(n){
+  df <- all_dat[c("RACE", pairwise_com[,n], "Total_subset")]
+  
+  races <- unique(df$RACE)
+  
+  map(races, function(race){
+    
+    df2 <- df[df$RACE == race,]
+    
+    lower <- quantile(df2$Total_subset, .25, na.rm = T)
+    upper <- quantile(df2$Total_subset, .75, na.rm = T)
+    
+    df2$RACE_pop_size <- "inner quartile"
+    df2$RACE_pop_size[df2$Total_subset < lower] <- "lower"
+    
+    df2$RACE_pop_size[df2$Total_subset > upper] <- "upper"
+    
+    df2 <- df2[df2$RACE_pop_size == "lower",]
+    
+    ggplot() + 
+    geom_point(aes(x = df2[[pairwise_com[1,n]]], 
+                   y = df2[[pairwise_com[2,n]]],
+                   color = df2[["RACE_pop_size"]])
+               ) + labs(x = pairwise_com[1,n], y = pairwise_com[2,n], title = race)
+
+  })
+  
+})
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
