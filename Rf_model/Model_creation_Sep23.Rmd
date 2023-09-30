@@ -16,15 +16,11 @@ library(tidyr)
 library(purrr)
 library(here)
 
-# here::i_am("Final/Code/Model_creation_RR.Rmd")
 ```
 
 
 ## Data import
 ```{r}
-# 
-# finalM <- unique(read.csv(here("Final","Data","final_model_df.csv")))[-1]
-
 
 finalM <- read.csv("final_model_df.csv")[-1]
 
@@ -35,6 +31,7 @@ finalM <- finalM[!apply(is.na(finalM), 1, any),]
 table(finalM$RACE[finalM$Race_pop > 500])
 
 ```
+
 
 ## Nest and split model
 ```{r}
@@ -140,7 +137,7 @@ for(i in 1:length(rf_models)){
 ggplot(mse_df, aes(x = Holdout_Division, y = Test_mse)) + geom_point() + 
   facet_wrap(~Race#, scales = "free_y"
              ) + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
-  labs(x = "Division Holdout", y = "Mean square error")
+  labs(x = "", y = "Mean square error")
 
 ```
 
@@ -172,13 +169,15 @@ importances_final <- map_dfr(names(rf_models), function(race){
 
 importances_final <- left_join(importances_final, mse_df)
 
+plot_rsq <- unique(importances_final["Race", "Holdout_Division",  "Validation_rsq"])
+
 write.csv(importances_final, "importances_final.csv")
 
 ```
 
 ```{r}
 
-importances_final <- read.csv("importances_final.csv")[-1]
+importances_final <- read.csv("importances_final.csv", check.names = F)[-1]
 
 ## each data
 
@@ -252,7 +251,8 @@ top_imp_plots <- map(unique(top_20s$Race), function(race){
   p <- ggplot(df, 
          aes(y = Feature, x = top_incmse)) + 
   geom_boxplot(show.legend = F) + theme_bw() + 
-    geom_point(aes(color = Holdout_Division), show.legend = race == "Asian") 
+    geom_point(aes(color = Holdout_Division)#, show.legend = race == "Asian"
+               ) 
   
   p + labs(y = "", x = "% Increase in MSE",
            title = paste0(race, " models")) +  
@@ -260,6 +260,8 @@ top_imp_plots <- map(unique(top_20s$Race), function(race){
   
 })
 names(top_imp_plots) <- c("A", "B", "C", "D")
+
+white_all_county <- top_imp_plots[[3]]
 
 patchwork::wrap_plots(top_imp_plots, guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
 
@@ -304,5 +306,292 @@ for(x in unique(top_20s$Feature)){
 
 
 
+## Investigate high-population low-homeownership White counties
+```{r}
+## Most of these counties are in Texas, arizona, california
+
+temp_white <- finalM[finalM$RACE == "White",]
+
+counties_white_low <- temp_white[Reduce("&", list(temp_white$Race_frac > 0.9, temp_white$HO_share < 0.5)),]
+
+all_races_low_counties <- finalM[finalM$county_fips %in% counties_white_low$county_fips,]
+
+## Homeownership is attributed almost entirely to Hispanic populations here
+ggplot(all_races_low_counties, aes(color = RACE, y = Race_frac, x = HO_over_Race)) + facet_wrap(~Division) +
+  geom_point() + theme_bw() + scale_color_discrete(type = "viridis") + 
+  labs(color = "")
+
+final_model_alt_counties <- finalM[!Reduce("&", list((finalM$county_fips %in% counties_white_low$county_fips), 
+                                                    finalM$RACE == "White")),]
+
+ggplot(temp_white, aes(x = HO_over_Race, y = Race_frac,
+                       color = HO_share)) + facet_wrap(~Division) +
+  geom_point() + theme_bw() + scale_color_continuous(type = "viridis")
+
+ggplot(final_model_alt_counties[final_model_alt_counties$RACE == "White",], aes(x = HO_over_Race, y = Race_frac,
+                       color = HO_share)) + facet_wrap(~Division) +
+  geom_point() + theme_bw() + scale_color_continuous(type = "viridis")
+
+ggplot(finalM[finalM$RACE == "White",], aes(x = HO_over_Race, y = Race_frac,
+                       color = White)) + facet_wrap(~Division) +
+  geom_point() + theme_bw() + scale_color_continuous(type = "viridis")
+
+
+```
+
+
+## Nest and split model
+```{r}
+
+# nest the data by race
+nested_fm <- final_model_alt_counties %>% group_by(RACE) %>% nest()
+
+# set.seed
+set.seed(2023)
+nested_fm <- nested_fm %>%
+  dplyr::mutate(
+    # determine hold out set (10% from each county for each race model with populations above 500)
+    holdout_data = map(data,function(dat){
+      subdata = dat
+      # filter to counties greater than 500
+      subdata <- subdata[subdata$Race_pop > 500, ]
+      # subset 10% from each county
+      holdout_subdata <- subdata %>%
+        dplyr::group_by(Division) %>%
+        sample_frac(0.1) %>% ungroup()
+      }),
+    # determine the rest of the data (accounting for populations above 500)
+    rest_data = map2(data, holdout_data,function(dat,hold_dat){
+      subdata = dat
+      # filter to counties greater than 500
+      subdata <- subdata[subdata$Race_pop > 500, ]
+      rest_dat = subdata %>%
+        dplyr::filter(!county_fips %in% hold_dat$county_fips)
+      })
+    )
+
+```
+
+## Run RF
+
+```{r}
+divs <- unique(finalM$Division)
+
+cut <- 500
+race_models <- nested_fm$rest_data
+
+rf_models <- map(race_models, function(race){
+  
+  
+  classifier_RF <- map(divs, function(div){
+    print(div)
+    
+    subdata <- race
+    #subdata <- subdata[subdata$Race_pop > 500, ]
+    holdout <- subdata$Division == div
+    subdata <- subdata[-ncol(subdata)]
+    subdata <- subdata[10:ncol(subdata)]
+    
+    train <- subdata[!holdout,]
+    test <- subdata[holdout,]
+        
+      # Fitting Random Forest to the train dataset
+    set.seed(120)  # Setting seed
+    randomForest(
+      x = train[colnames(train) != "HO_over_Race"],
+      y = train$HO_over_Race,
+      xtest = test[colnames(train) != "HO_over_Race"],
+      ytest = test$HO_over_Race,
+      importance = T,
+      proximity = T,
+      keep.forest = T
+      )
+  })
+  
+  names(classifier_RF) <- divs
+  classifier_RF
+  
+})
+names(rf_models) <- nested_fm$RACE
+
+saveRDS(rf_models, "Main_effects_RF_white_exc.RDS")
+
+```
+
+```{r}
+
+rf_models <- readRDS("Main_effects_RF_white_exc.RDS")
+
+# find mse for testing of the models
+mse_df <- crossing(Race = rep(names(rf_models),9),
+                  Holdout_Division = rep(divs,4)) %>%
+  data.frame()
+mse_df$Test_mse <- NA
+for(i in 1:length(rf_models)){
+  for(j in 1:length(rf_models[[i]])){
+    race_name = names(rf_models)[i]
+    division_name = names(rf_models[[i]])[j]
+    
+    mse_row = which(mse_df$Race == race_name & mse_df$Holdout_Division == division_name)
+    predrf = predict(rf_models[[i]][[j]],nested_fm$holdout_data[[i]])
+
+    mse_value = mean((nested_fm$holdout_data[[i]]$HO_over_Race - predrf)^2)
+    mse_df[mse_row,]$Test_mse = mse_value
+
+  }
+}
+
+ggplot(mse_df, aes(x = Holdout_Division, y = Test_mse)) + geom_point() + 
+  facet_wrap(~Race#, scales = "free_y"
+             ) + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(x = "Division Holdout", y = "Mean square error")
+
+```
+
+## Get variable importances from well-performing models
+
+```{r}
+
+importances_final <- map_dfr(names(rf_models), function(race){
+  
+ set_race  <- rf_models[[which(names(rf_models) == race)]]
+  
+  race_df <- map_dfr(names(set_race), function(div){
+    
+    set_rf  <- set_race[[which(names(set_race) == div)]]
+    df <- as.data.frame(importance(set_rf))
+    df$Feature <- row.names(df)
+    row.names(df) <- NULL
+    df$Holdout_Division <- div
+    df$Validation_rsq <- set_rf$test$rsq[length(set_rf$test$rsq)]
+    df$Validation_mse <- set_rf$test$mse[length(set_rf$test$mse)]
+    df
+    
+  })
+  
+  race_df$Race <- race
+  race_df
+  
+})
+
+importances_final <- left_join(importances_final, mse_df)
+
+write.csv(importances_final, "importances_final_white_exc.csv")
+
+```
+
+```{r}
+
+importances_final <- read.csv("importances_final_white_exc.csv", check.names = F)[-1]
+
+## each data
+
+## good models only
+importance_good <- importances_final[importances_final$Validation_rsq > 0.1,]
+
+## How many crossvalidation models had good results?
+table(unique(importance_good[c("Race", "Holdout_Division")])$Race)
+
+## Best features by top 5% quantile of %IncMSE
+top_20s <- importance_good %>% group_by(Holdout_Division, Race) %>%
+  summarise(
+    Feature = Feature[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    top_incmse = `%IncMSE`[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    NP = IncNodePurity[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    rsq = Validation_rsq[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_val = Validation_mse[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_test = Test_mse[`%IncMSE` > quantile(`%IncMSE`, .95)]
+  )
+
+## Frequency of variable labeled as important
+top_20_feature_freq <- as.data.frame(table(top_20s[c("Race", "Feature")]))
+top_20_feature_freq <- top_20_feature_freq[top_20_feature_freq$Freq > 0,]
+
+## occurance of variables as compared to number of well-performing models
+totes_race <- map_dbl(as.character(top_20_feature_freq$Race), function(x){
+  switch(x, Asian = 8, Black = 9, Hispanic = 4, White = 8)
+})
+
+top_20_feature_freq$Perc <- top_20_feature_freq$Freq/totes_race
+top_20_feature_freq$Total_freq <- totes_race
+
+## Which variables are always important or almost always important?
+all_consistent <- top_20_feature_freq[top_20_feature_freq$Perc == 1,]
+almost_all <- top_20_feature_freq[abs(top_20_feature_freq$Freq - top_20_feature_freq$Total_freq) < 2,]
+
+## Employment by race/ethnicity for all
+## perc_X100to150_ami_non_white and Estimate_Total._Less.than.10.minutes for Asian population
+## GQESTIMATES for black and white populations
+## Less.than.high.school for hispanic populations
+
+table(almost_all$Race)/table(top_20_feature_freq$Race) ## Majority of features in almost all, except hispanic
+table(all_consistent$Race)/table(top_20_feature_freq$Race) ## less so in 100%
+
+## Marked as important with one specific holdout
+one_only <- top_20_feature_freq[top_20_feature_freq$Freq == 1,]
+
+## Asian - age, education at employment level
+## Hispanic - specific jobs, perc_X100to150_ami_non_white, Division, education at employment level, native employment
+
+rows_select <- apply(top_20s[c("Race", "Feature")],1, paste, collapse = "") %in%
+  apply(one_only[c("Race", "Feature")],1, paste, collapse = "") 
+
+## In which holdouts do these appear?
+arrange(top_20s[rows_select,], Race)
+
+```
+
+```{r}
+
+top_imp_plots <- map(unique(top_20s$Race), function(race){
+  
+  df <-  top_20s[top_20s$Race == race,]
+  
+  med_mse <- df %>% group_by(Feature) %>% summarise(med_incmse = median(top_incmse))
+  
+  leveler <- arrange(med_mse, desc(med_incmse))$Feature
+  
+  df$Feature <- factor(df$Feature, levels = leveler)
+  
+  p <- ggplot(df, 
+         aes(y = Feature, x = top_incmse)) + 
+  geom_boxplot(show.legend = F) + theme_bw() + 
+    geom_point(aes(color = Holdout_Division)#, show.legend = race == "Asian"
+               ) 
+  
+  p + labs(y = "", x = "% Increase in MSE",
+           title = paste0(race, " models")) +  
+    ggplot2::scale_color_discrete() + theme_bw()
+  
+})
+names(top_imp_plots) <- c("A", "B", "C", "D")
+
+patchwork::wrap_plots(top_imp_plots, guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+
+unique(top_20s$Feature)
+
+write.csv(top_20s, "important_vars_final_white_exc.csv")
+
+white_outlier_remove <- top_imp_plots[[3]]
+
+```
+
+## Compare with outlier removal
+
+```{r}
+
+patchwork::wrap_plots(white_all_county + 
+                        labs(title = "All counties - White models", color = "", x = "") +
+                        lims(x = c(22, 37)) + theme(axis.text.x = element_blank()),
+                      white_outlier_remove + 
+                        labs(title = "Outliers removed - White models", color = "") +
+                        lims(x = c(22, 37)), 
+                      nrow = 2,
+                      guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+
+
+```
+
+  
 
  
