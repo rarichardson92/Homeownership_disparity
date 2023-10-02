@@ -40,6 +40,15 @@ var_desc <- read.csv("Variable_Descriptions.csv")
 finalM <- read.csv("final_model_df.csv")[-1]
 finalM <- finalM[!apply(is.na(finalM), 1, any),]
 
+## Percentages across divisions
+tbl1 <- table(finalM[finalM$Race_pop > 500, c("Division", "RACE")])
+tbl2 <- table(finalM[finalM$Race_pop > 500, c("RACE")])
+
+signif(tbl1[,1]/tbl2[1] *100)
+signif(tbl1[,2]/tbl2[2] *100)
+signif(tbl1[,3]/tbl2[3] *100)
+signif(tbl1[,4]/tbl2[4] *100)
+
 ```
 
 ## Figure 1 - Maps
@@ -58,7 +67,7 @@ obs_plot <- ggplot() +
               mapping = aes(fill = observed),
               color = "#ffffff", size = 0.25) +
       labs(fill = "") + theme_bw()
-
+obs_plot
 ## Region designations
 region_join <- left_join(get_urbn_map("states", sf = TRUE), regions, by = c("state_name" = "State"))
 
@@ -68,7 +77,7 @@ region_join <- left_join(get_urbn_map("states", sf = TRUE), regions, by = c("sta
               mapping = aes(fill = Division),
               color = "#ffffff", size = 0.25) +
       labs(fill = "") + theme_bw()
- 
+ region_plot
 
 ## Join w/ other datasets
 cntys$county_fips <- as.numeric(cntys$county_fips)
@@ -82,7 +91,7 @@ HO_join <-  left_join(cntys, HO_data, by = c("state_name" = "st", "county_name" 
               color = "#ffffff", size = 0.25) +
       labs(fill = "log(foreclosure rate)") + theme_bw()  + 
    scale_fill_continuous(type = "viridis")
-
+HO_plot
 ## Population density
 pd_join <-  left_join(cntys, pop_density, by = c("county_fips" = "GEOID"))
 
@@ -93,17 +102,22 @@ pop_density_plot <- ggplot() +
           color = "#ffffff", size = 0.25) +
   labs(fill = "log(population density)") + theme_bw()  + 
 scale_fill_continuous(type = "viridis")
- 
+
+pop_density_plot
+
 ```
 
 ```{r, warning=F}
 
+pdf("maps.pdf", width = 20, height = 10)
 suppressMessages(
   suppressWarnings(wrap_plots(region_plot + theme(text = element_text(size = 15)), 
                       obs_plot + theme(text = element_text(size = 15)), 
                       pop_density_plot+ theme(text = element_text(size = 15)),
                       HO_plot+ theme(text = element_text(size = 15)), 
                       nrow = 2) + patchwork::plot_annotation(tag_levels = "A")))
+
+dev.off()
 
 ```
 
@@ -143,12 +157,12 @@ d2$var2 <- factor(d2$var2, colnames(cors)[hclust_res$order])
 d2 <- d2[!is.na(d2$var1),]
 d2 <- d2[!is.na(d2$var2),]
 
+pdf("cor.pdf", width = 10, height = 9)
 ggplot(d2, aes( x = var1, y = var2, fill = value)) + geom_tile() + theme_bw() + 
   theme(axis.text.x = element_text(angle = 270, hjust = 0, vjust = 0.5)) + 
   labs(x = "", y = "", fill = "Correlation") + 
   scale_fill_gradient2()
-
-d2
+dev.off()
 
 ```
 
@@ -182,6 +196,8 @@ TimeData <- data.table(
   mutate(YearCenter = (YearStart + YearEnd) / 2) %>%
   mutate(Dataset = 1:7)
 
+pdf("Timeline_Graphic.pdf", width = 8, height = 4)
+
 thePlot <- ggplot(TimeData, aes(x = YearStart, xend = YearEnd, y = Dataset, yend = Dataset, label = Label)) +
   geom_vline(xintercept = c(2015, 2019), color = "red") +
   geom_segment() + geom_label(x = TimeData$YearCenter) + ylab("") + theme_minimal() + xlab("Years") +
@@ -189,7 +205,9 @@ thePlot <- ggplot(TimeData, aes(x = YearStart, xend = YearEnd, y = Dataset, yend
   guides(fill=guide_legend(title="Status", override.aes = aes(label = ""))) 
 thePlot
 
-ggsave("Timeline_Graphic.png", path = "~/Downloads", width = 8, height = 4, units = "in")
+dev.off()
+
+# ggsave("Timeline_Graphic.png", path = "~/Downloads", width = 8, height = 4, units = "in")
 
 
 ### Capitalize dataset names
@@ -212,6 +230,7 @@ dat <- dat[!is.na(dat$Race_frac),]
 
 dat <- dat[dat$RACE != "Other",]
 
+pdf("HO.pdf", width = 9, height = 6)
 ggplot(dat, 
      mapping = aes(y = HO_share, x = Race_frac)) + 
   geom_hex(aes(fill = stat(log(count)))) +
@@ -226,6 +245,7 @@ labs(y = paste("% homeowners"),
      title = "County Homeownership Equity") +
   scale_fill_continuous("Log( N Counties )") + theme_bw() +
   theme(text = element_text(size = 15))
+dev.off()
 
 # Seeing weird banding patterns? Check your package, 3.4.0 appears to have an error
 # packageurl <- "https://cran.r-project.org/src/contrib/Archive/ggplot2/ggplot2_3.3.6.tar.gz"
@@ -246,259 +266,9 @@ labs(y = paste("% homeowners"),
 ```
 
 
-## Figure 3 Urban pop density plots
-```{r, echo=FALSE}
-
-data <- finalM ## you can call this on the earlier dataset to see results before filtering as well
-data$col <- colour_values(data$pop_density, palette = "viridis")
-data$st = tolower(data$st)
-data$county = tolower(data$county)
-
-# regions <- regions
-# colnames(regions) <- c("st", "state_abbv", "Region", "Division")
-# regions$st <- tolower(regions$st)
-# 
-# data <- merge(data, regions , by=c("st"))
-
-white <- subset(data, RACE=="White")
-black <- subset(data, RACE=="Black")
-hispanic <- subset(data, RACE=="Hispanic")
-asian <- subset(data, RACE=="Asian")
-
-```
-
-```{r quantiles funcs, echo=FALSE}
-
-data_1000up = subset(data, pop_density>1000)
-data_500down = subset(data, pop_density<500)
-
-p1 <- ggplot(data_500down, aes(HO_over_Race, color=RACE))+
-  geom_boxplot(show.legend = F)+
-  lims(x = c(0, 2.5)) +
-  #scale_y_continuous(trans='log10')+
-  ggtitle("Rural populations")+
-  labs(x = 'Response', color  = "")+
-  theme_bw() +
-  geom_vline(xintercept = 1, linetype = 2) +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
-  
-
-p2 <- ggplot(data_1000up, aes(HO_over_Race, color=RACE))+
-  geom_boxplot()+
-  #scale_y_continuous(trans='log10')+
-  ggtitle("Urban populations")+
-  lims(x = c(0, 2.5)) +
-  labs(x = 'Response', color  = "")+
-  theme_bw()+
-  geom_vline(xintercept = 1, linetype = 2) +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
-
-wrap_plots(p1 + theme(text = element_text(size = 12)), 
-                      p2 + theme(text = element_text(size = 12)), 
-                      ncol = 2) #+ patchwork::plot_annotation(tag_levels = "A")
-
-
-## Really not a lot of representation in final model for urban populations 
-table(data_500down$RACE)
-table(data_1000up$RACE)
-
-table(data_500down[data_500down$Race_pop > 500,]$RACE)
-table(data_1000up[data_1000up$Race_pop > 500,]$RACE)
-  
-```
-
-## Figure 4 Random forest performance based on population cut-off -- ought to be re-run with out new schema :(
-```{r}
-
-# nested <- finalM %>% group_by(RACE) %>% nest()
-# 
-# cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
-# 
-# res <- map(nested$data, function(subdata){
-#   
-#   ## counties present per state before filters
-#   og_counties <- table(subdata$st)
-#   
-#   ## run for each cut
-#   res_quantile <- map(
-#   cutt_offs, 
-#   function(cut){
-#     
-#     print(cut)
-#   
-#   # pop filter
-#   if(all(cut > 1)){
-#     subdata <- subdata[subdata$Race_pop > cut,]
-#   } else {
-#     subdata <- subdata[subdata$Race_pop > quantile(subdata$Race_pop, cut),]
-#   }
-#     
-#   ## after filtering counties per state
-#   filtered_counties_post_filt <- table(subdata$st)
-# 
-#   ## Col reduction
-#   subdata <- subdata[c(1, 10:ncol(subdata))]
-#   subdata <- subdata[!(colnames(subdata) %in% "Race_employment")]
-#   
-#   ## row reduction
-#   subdata <- subdata[!apply(is.na(subdata), 1, any),]
-#   
-#     ## after filtering counties per state
-#   filtered_counties_post_rr <- table(subdata$st)
-#   
-#       removed_df <- data.frame(
-#       state = names(og_counties),
-#       before = as.numeric(og_counties)
-#       )
-#     removed_df2 <- data.frame(
-#       state = names(filtered_counties_post_filt),
-#       after_filt = as.numeric(filtered_counties_post_filt)
-#       )
-#     removed_df3 <- data.frame(
-#       state = names(filtered_counties_post_rr),
-#       after_rr = as.numeric(filtered_counties_post_rr)
-#       )
-#   
-#   removed_df <- left_join(left_join(removed_df, removed_df2), removed_df3)
-#   removed_df$cut <- cut
-#   removed_df$reduced_pop <- (removed_df$before-removed_df$after_filt)/removed_df$before
-#   removed_df$reduced_rr <- (removed_df$before-removed_df$after_rr)/removed_df$before
-#   
-#   ## remove state desig
-#   subdata <- subdata[-1]
-#   
-#   ## run RFs
-#   rfs <- map(1:10, 
-#              function(n){
-#     print(n)
-#       # Splitting data in train and test data
-#     split <- sample.split(subdata$HO_over_Race, SplitRatio = 0.7)
-#       
-#     train <- subdata[split,]
-#     test <- subdata[!split,]
-#       
-#     # Fitting Random Forest to the train dataset
-#     set.seed(120)  # Setting seed
-#     classifier_RF <- randomForest(
-#       x = train[-1],
-#       y = train$HO_over_Race,
-#       xtest = test[-1],
-#       ytest = test$HO_over_Race,
-#       ntree = 500,
-#       importance = T,
-#       proximity = T
-#       )
-#     
-#   })
-#   
-#   list(
-#   rfs,
-#   removed_df
-#   )
-#     
-#   })
-#   
-#   names(res_quantile) <- as.character(cutt_offs)
-#   res_quantile
-# })
-# 
-# names(res) <- nested[[1]]
-
-# res <- saveRDS(res, "RF.RDS")
-
-```
-
-```{r}
-res <- readRDS("RF.RDS")
-
-cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
-
-df_rf_res <- map_dfr(names(res), function(race){
-  cut_res_pop <- map_dfr(as.character(cutt_offs), function(n){
-
-    ## E.g. rf for >200 folks
-    rf_co <- res[[race]][[n]][[1]]
-
-    var_exp <- map_dbl(rf_co, function(rf) rf$rsq[length(rf$rsq)] * 100)
-    mse_all <- map_dbl(rf_co, function(rf) rf$mse[length(rf$mse)])
-
-    data.frame(
-      Varience_explained = var_exp,
-      MSE = mse_all,
-      pop = n
-    )
-
-  })
-
-  cut_res_pop$race <- race
-
-  cut_res_pop
-
-})
-
-df_rf_res$pop <- factor(df_rf_res$pop, levels = cutt_offs)
-
-p_1 <- ggplot(df_rf_res, aes(y = Varience_explained, x = pop, color = race)) +
-  geom_boxplot() + theme_bw() + labs(x = "Population minimum", y = "Pseudo R^2", color = "")+ theme(text = element_text(size = 15))
-
-p_2 <- ggplot(df_rf_res, aes(y = MSE, x = pop, color = race)) +
-  geom_boxplot() + theme_bw() + labs(x = "Population minimum", color = "")+ theme(text = element_text(size = 15))
-
-wrap_plots(p_1, p_2, ncol = 2, guides = "collect") +
-  plot_annotation(tag_levels = "A")
-
-```
-
-## by region/state pop reduction
-```{r}
-res <- readRDS("RF.RDS")
-cutt_offs <- c(0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000)
-
-presence_df <- map_dfr(names(res), function(race){
-  df <- map_dfr(res[[race]], 2)
-  df$RACE <- race
-  df
-})
-
-temp <- unique(presence_df[1:2])
-presence_df$state <- factor(presence_df$state, temp$state[order(temp$before)])
-presence_df$cut <- factor(presence_df$cut, cutt_offs)
-
-presence_df <- left_join(presence_df, regional_data, by = c(state = "State"))
-
-pop_plots <- map(cutt_offs[-1], function(cut){
-  df <- presence_df[presence_df$cut == cut,]
-  stdf <- df %>% group_by(RACE) %>%
-    summarise(n_counties_after = sum(after_rr, na.rm = T))
-  
-  ann_text <- apply(stdf, 1, 
-                    function(row) paste(row[1], "-", 
-                                        row[2], "/", 
-                                        sum(temp$before), "counties"))
-  st1 <- paste(ann_text[2:1], collapse = "              ")
-  st2 <- paste(ann_text[4:3], collapse = "         ")
-  st <- paste(st1, st2, collapse = "\n")
-  
-  ggplot(df, aes(x = state, y = reduced_pop, fill = RACE)) +
-  geom_col(position = "dodge") +
-    scale_y_continuous(limits = c(0, 1)) +
-  facet_grid(~ Division, 
-             scales = "free_x",
-             space = "free_x",
-             switch = "x") +
-    labs(y = "Proportion of counties excluded", x = "", 
-         title = paste("Population cut-off:", cut),
-         subtitle = paste(c(st1, st2), collapse = "\n")) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-})
-
-```
-
-
 ## Variable Importance
 
-## Figure 7 importance boxplots (top 20)
+## Figure 3 importance boxplots (top 20)
 ```{r}
 
 ## each data
@@ -543,7 +313,7 @@ top_imp_plots <- map(unique(top_20s_sub$Race), function(race){
   p <- ggplot(df, 
          aes(y = Feature, x = top_incmse)) + 
   geom_boxplot(show.legend = F) + theme_bw() + 
-    geom_point(aes(color = Holdout_Division), show.legend = race == "Asian") 
+    geom_point(aes(color = Holdout_Division), show.legend = race == "Asian") + labs(col = "Holdout")
   p + labs(y = "", x = "% Increase in MSE",
            title = paste0(race, " models")) + ggplot2::scale_color_discrete()
   
@@ -551,10 +321,16 @@ top_imp_plots <- map(unique(top_20s_sub$Race), function(race){
 
 names(top_imp_plots) <- c("A", "B", "C", "D")
 
-patchwork::wrap_plots(top_imp_plots, guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+fig6 = patchwork::wrap_plots(top_imp_plots, guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+
+pdf("importance.pdf", width = 9, height = 6)
+fig6
+dev.off()
+
+# ggsave("fig6.png",plot = fig6,dpi = 300,width = 9,height = 6)
 ```
 
-## Figure 8 marginal effects
+## Figure 4 marginal effects
 ```{r}
 
 
@@ -563,6 +339,7 @@ finalM2 <- finalM[finalM$Race_pop > 500,]
 finalM2 <- finalM2[!apply(is.na(finalM2), 1, any),]
 finalM2 <- finalM2[finalM2$Division != div,]
 
+pdf("mar_eff.pdf", width = 6, height = 6)
 par(mfrow = c(2, 2))
 for(race in unique(finalM2$RACE)){
   rf <- random_forest_models[[race]][[div]]
@@ -571,18 +348,16 @@ for(race in unique(finalM2$RACE)){
   finalM_train <- finalM_train[which(colnames(finalM_train) %in% row.names(rf$importance))]
   
   partialPlot(rf, finalM2, "Less.than.high.school", 
-              xlab = "Workers w/ < high school education",
+              xlab = "jobLessHS",
             ylab = "Marginal effect on response", main = race)
   
 }
-
-
-
+dev.off()
 
 ```
 
 
-## Trelliscope of hexplots and a single example
+## Trelliscope of hexplots
 
 ```{r}
 
@@ -617,15 +392,232 @@ trell_df <- mutate(ungroup(nest_imp_plotter),
 
 trelliscope(trell_df, name = "Hex_plots_Eq_dist", path = "./Trelliscope_eq")
 
-ggplot(finalM, 
-     mapping = aes(y = HO_over_Race, x = `Less.than.high.school`)) + 
-  geom_hex(aes(fill = stat(log(count)))) +
-facet_wrap(vars(RACE), nrow = 2) +
-labs(y = paste("Response"), 
-     x = "jobLessHS",
-     title = "") +
-  scale_fill_continuous("Log( N Counties )") + theme_bw() +
-  theme(text = element_text(size = 15))
+```
+
+
+```{r}
+
+rf_models <- readRDS("Main_effects_RF.RDS")
+divs <- unique(finalM$Division)
+
+# nest the data by race
+nested_fm <- finalM %>% group_by(RACE) %>% nest()
+
+# set.seed
+set.seed(2023)
+nested_fm <- nested_fm %>%
+  dplyr::mutate(
+    # determine hold out set (10% from each county for each race model with populations above 500)
+    holdout_data = map(data,function(dat){
+      subdata = dat
+      # filter to counties greater than 500
+      subdata <- subdata[subdata$Race_pop > 500, ]
+      # subset 10% from each county
+      holdout_subdata <- subdata %>%
+        dplyr::group_by(Division) %>%
+        sample_frac(0.1) %>% ungroup()
+      }),
+    # determine the rest of the data (accounting for populations above 500)
+    rest_data = map2(data, holdout_data,function(dat,hold_dat){
+      subdata = dat
+      # filter to counties greater than 500
+      subdata <- subdata[subdata$Race_pop > 500, ]
+      rest_dat = subdata %>%
+        dplyr::filter(!county_fips %in% hold_dat$county_fips)
+      })
+    )
+
+# find mse for testing of the models
+mse_df <- crossing(Race = rep(names(rf_models),9),
+                  Holdout_Division = rep(divs,4)) %>%
+  data.frame()
+mse_df$Test_mse <- NA
+for(i in 1:length(rf_models)){
+  for(j in 1:length(rf_models[[i]])){
+    race_name = names(rf_models)[i]
+    division_name = names(rf_models[[i]])[j]
+    
+    mse_row = which(mse_df$Race == race_name & mse_df$Holdout_Division == division_name)
+    predrf = predict(rf_models[[i]][[j]],nested_fm$holdout_data[[i]])
+
+    mse_value = mean((nested_fm$holdout_data[[i]]$HO_over_Race - predrf)^2)
+    mse_df[mse_row,]$Test_mse = mse_value
+
+  }
+}
+
+pdf("mse_test.pdf", width = 4, height = 4)
+ggplot(mse_df, aes(x = Holdout_Division, y = Test_mse)) + geom_point() + 
+  facet_wrap(~Race#, scales = "free_y"
+             ) + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(x = "", y = "Mean square error")
+dev.off()
+
+```
+
+
+```{r}
+importances_final <- map_dfr(names(rf_models), function(race){
+  
+ set_race  <- rf_models[[which(names(rf_models) == race)]]
+  
+  race_df <- map_dfr(names(set_race), function(div){
+    
+    set_rf  <- set_race[[which(names(set_race) == div)]]
+    df <- as.data.frame(importance(set_rf))
+    df$Feature <- row.names(df)
+    row.names(df) <- NULL
+    df$Holdout_Division <- div
+    df$Validation_rsq <- set_rf$test$rsq[length(set_rf$test$rsq)]
+    df$Validation_mse <- set_rf$test$mse[length(set_rf$test$mse)]
+    df
+    
+  })
+  
+  race_df$Race <- race
+  race_df
+  
+})
+
+importances_final <- left_join(importances_final, mse_df)
+
+pdf("val_rsq.pdf", width = 5, height = 5)
+
+unique(importances_final[c("Holdout_Division", "Validation_rsq", "Race")]) %>%
+  ggplot(aes(x = Holdout_Division, y = Validation_rsq)) +
+  geom_point() + 
+  theme_bw() +
+  facet_wrap(~Race) + 
+  labs(y = "Validation Psuedo R^2", x = "") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+dev.off()
+
+# model_df %>%
+#   ggplot(aes(x = Division, y = mse_all)) +
+#   geom_point() + 
+#   theme_bw() +
+#   facet_wrap(~Race) + 
+#   labs(y = "Test MSE") +
+#   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+```
+
+## Additional White model exploration
+```{r}
+
+ggplot(finalM[finalM$RACE == "White",], aes(x = HO_over_Race, y = Race_frac,
+                       color = White)) + facet_wrap(~Division) +
+  geom_point() + theme_bw() + ggplot2::scale_color_continuous(type = "viridis")
+
+```
+
+```{r}
+importances_final <- read.csv("importances_final.csv", check.names = F)[-1]
+
+## each data
+
+## good models only
+importance_good <- importances_final[importances_final$Validation_rsq > 0.1,]
+
+## Best features by top 5% quantile of %IncMSE
+top_20s <- importance_good %>% group_by(Holdout_Division, Race) %>%
+  summarise(
+    Feature = Feature[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    top_incmse = `%IncMSE`[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    NP = IncNodePurity[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    rsq = Validation_rsq[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_val = Validation_mse[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_test = Test_mse[`%IncMSE` > quantile(`%IncMSE`, .95)]
+  )
+
+## Frequency of variable labeled as important
+top_20_feature_freq <- as.data.frame(table(top_20s[c("Race", "Feature")]))
+top_20_feature_freq <- top_20_feature_freq[top_20_feature_freq$Freq > 0,]
+
+## occurance of variables as compared to number of well-performing models
+totes_race <- map_dbl(as.character(top_20_feature_freq$Race), function(x){
+  switch(x, Asian = 8, Black = 9, Hispanic = 4, White = 8)
+})
+
+top_imp_plots <- map(unique(top_20s$Race), function(race){
+  
+  df <-  top_20s[top_20s$Race == race,]
+  
+  med_mse <- df %>% group_by(Feature) %>% summarise(med_incmse = median(top_incmse))
+  
+  leveler <- arrange(med_mse, desc(med_incmse))$Feature
+  
+  df$Feature <- factor(df$Feature, levels = leveler)
+  
+  p <- ggplot(df, 
+         aes(y = Feature, x = top_incmse)) + 
+  geom_boxplot(show.legend = F) + theme_bw() + 
+    geom_point(aes(color = Holdout_Division)#, show.legend = race == "Asian"
+               ) 
+  
+  p + labs(y = "", x = "% Increase in MSE",
+           title = paste0(race, " models")) +  
+    ggplot2::scale_color_discrete() + theme_bw()
+  
+})
+
+white_all_county <- top_imp_plots[[3]]
+
+######
+
+importances_final <- read.csv("importances_final_white_exc.csv", check.names = F)[-1]
+
+## each data
+
+## good models only
+importance_good <- importances_final[importances_final$Validation_rsq > 0.1,]
+
+## Best features by top 5% quantile of %IncMSE
+top_20s <- importance_good %>% group_by(Holdout_Division, Race) %>%
+  summarise(
+    Feature = Feature[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    top_incmse = `%IncMSE`[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    NP = IncNodePurity[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    rsq = Validation_rsq[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_val = Validation_mse[`%IncMSE` > quantile(`%IncMSE`, .95)],
+    mse_test = Test_mse[`%IncMSE` > quantile(`%IncMSE`, .95)]
+  )
+
+top_imp_plots <- map(unique(top_20s$Race), function(race){
+  
+  df <-  top_20s[top_20s$Race == race,]
+  
+  med_mse <- df %>% group_by(Feature) %>% summarise(med_incmse = median(top_incmse))
+  
+  leveler <- arrange(med_mse, desc(med_incmse))$Feature
+  
+  df$Feature <- factor(df$Feature, levels = leveler)
+  
+  p <- ggplot(df, 
+         aes(y = Feature, x = top_incmse)) + 
+  geom_boxplot(show.legend = F) + theme_bw() + 
+    geom_point(aes(color = Holdout_Division)#, show.legend = race == "Asian"
+               ) 
+  
+  p + labs(y = "", x = "% Increase in MSE",
+           title = paste0(race, " models")) +  
+    ggplot2::scale_color_discrete() + theme_bw()
+  
+})
+
+white_outlier_remove <- top_imp_plots[[3]]
+
+pdf("white_comp.pdf", width = 7, height = 8)
+patchwork::wrap_plots(white_all_county + 
+                        labs(title = "All counties - White models", color = "", x = "") +
+                        lims(x = c(22, 37)) + theme(axis.text.x = element_blank()),
+                      white_outlier_remove + 
+                        labs(title = "Outliers removed - White models", color = "") +
+                        lims(x = c(22, 37)), 
+                      nrow = 2,
+                      guides = "collect") + patchwork::plot_annotation(tag_levels = 'A')
+dev.off()
 
 ```
 
